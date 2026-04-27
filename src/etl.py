@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 import pandas as pd
 
 RAW_DIR = Path("data/raw")
@@ -7,6 +8,8 @@ PROCESSED_FILE = PROCESSED_DIR / "country_affordability.csv"
 
 REQUIRED_COST_COLUMNS = {"country", "cost_of_living_index", "iso3", "region"}
 REQUIRED_SALARY_COLUMNS = {"country", "median_salary_usd"}
+
+logger = logging.getLogger(__name__)
 
 
 def affordability_index(salary_usd: pd.Series, cost_index: pd.Series) -> pd.Series:
@@ -20,20 +23,47 @@ def _validate_columns(df: pd.DataFrame, required_columns: set[str], dataset_name
         raise ValueError(f"{dataset_name} is missing required columns: {sorted(missing)}")
 
 
+def _coerce_numeric(df: pd.DataFrame, columns: list[str], dataset_name: str) -> pd.DataFrame:
+    """Cast columns to numeric, coercing invalid values to NaN and logging any issues."""
+    df = df.copy()
+    for col in columns:
+        converted = pd.to_numeric(df[col], errors="coerce")
+        bad = df[col].notna() & converted.isna()
+        if bad.any():
+            logger.warning(
+                "%s: %d non-numeric value(s) in column '%s' will be treated as NaN",
+                dataset_name,
+                int(bad.sum()),
+                col,
+            )
+        df[col] = converted
+    return df
+
+
 def build_country_dataset(cost_df: pd.DataFrame, salary_df: pd.DataFrame) -> pd.DataFrame:
     """Merge country-level cost-of-living and salary data and compute affordability."""
     _validate_columns(cost_df, REQUIRED_COST_COLUMNS, "cost_of_living.csv")
     _validate_columns(salary_df, REQUIRED_SALARY_COLUMNS, "developer_salaries.csv")
 
-    cost_df = cost_df.copy()
-    salary_df = salary_df.copy()
+    cost_df = _coerce_numeric(cost_df.copy(), ["cost_of_living_index"], "cost_of_living.csv")
+    salary_df = _coerce_numeric(salary_df.copy(), ["median_salary_usd"], "developer_salaries.csv")
+
     cost_df["country"] = cost_df["country"].astype(str).str.strip()
     salary_df["country"] = salary_df["country"].astype(str).str.strip()
 
     merged = cost_df.merge(salary_df, on="country", how="inner")
+    logger.info("Merged dataset: %d countries", len(merged))
+
     merged["affordability_index"] = affordability_index(
         merged["median_salary_usd"], merged["cost_of_living_index"]
     )
+
+    before = len(merged)
+    merged = merged.dropna(subset=["affordability_index"])
+    dropped = before - len(merged)
+    if dropped:
+        logger.warning("Dropped %d row(s) with undefined affordability_index", dropped)
+
     return merged.sort_values("affordability_index", ascending=False).reset_index(drop=True)
 
 
@@ -75,16 +105,21 @@ def run_etl() -> pd.DataFrame:
             "data/raw/developer_salaries.csv"
         )
 
-    cost_df = pd.read_csv(cost_path)
-    salary_df = pd.read_csv(salary_path)
+    try:
+        cost_df = pd.read_csv(cost_path)
+        salary_df = pd.read_csv(salary_path)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read raw CSV files: {exc}") from exc
 
     result = build_country_dataset(cost_df, salary_df)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     result.to_csv(PROCESSED_FILE, index=False)
+    logger.info("Wrote %d rows to %s", len(result), PROCESSED_FILE)
     return result
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     write_example_raw_templates()
     df = run_etl()
     print(f"Generated {len(df)} rows in {PROCESSED_FILE}")

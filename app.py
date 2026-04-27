@@ -10,19 +10,56 @@ st.title("Global Cost of Living vs Developer Salaries")
 DATA_PATH = Path("data/processed/country_affordability.csv")
 EXAMPLE_DATA_PATH = Path("data/processed/example_country_affordability.csv")
 
-if not DATA_PATH.exists():
-    if EXAMPLE_DATA_PATH.exists():
+
+def _load_data() -> pd.DataFrame | None:
+    if DATA_PATH.exists():
+        path = DATA_PATH
+    elif EXAMPLE_DATA_PATH.exists():
         st.info(
             "Showing bundled example data. For real analysis, add raw files in data/raw/ and run `python src/etl.py`."
         )
-        df = pd.read_csv(EXAMPLE_DATA_PATH)
+        path = EXAMPLE_DATA_PATH
     else:
         st.warning(
             "Processed file not found. Run `python src/etl.py` after adding raw files in data/raw/."
         )
-        st.stop()
-else:
-    df = pd.read_csv(DATA_PATH)
+        return None
+
+    try:
+        return pd.read_csv(path)
+    except Exception as exc:
+        st.error(f"Failed to load data: {exc}")
+        return None
+
+
+def _render_insights(df: pd.DataFrame) -> None:
+    best = df.iloc[0]
+    worst = df.iloc[-1]
+    best_region = df.groupby("region")["affordability_index"].mean().idxmax()
+    avg_idx = df["affordability_index"].mean()
+
+    st.markdown(
+        f"1. **{best['country']}** leads in affordability "
+        f"(index: {best['affordability_index']:.0f}), while **{worst['country']}** "
+        f"ranks lowest ({worst['affordability_index']:.0f})."
+    )
+    st.markdown(
+        f"2. The **{best_region}** region offers the highest average purchasing power "
+        f"for developers on a salary-to-cost basis."
+    )
+    st.markdown(
+        f"3. The global average affordability index across {len(df)} countries is "
+        f"**{avg_idx:.0f}** — countries above this threshold offer above-average purchasing power."
+    )
+    st.markdown(
+        "4. Countries with high nominal salaries do not always lead in affordability: "
+        "cost structure has a greater impact on effective purchasing power than salary alone."
+    )
+
+
+df = _load_data()
+if df is None:
+    st.stop()
 
 page = st.sidebar.radio(
     "Navigate",
@@ -44,7 +81,4 @@ elif page == "Affordability":
 
 else:
     st.subheader("Insights")
-    st.markdown("1. Countries with high developer salaries do not always provide the best affordability.")
-    st.markdown("2. Some mid-salary markets outperform expensive tech hubs on salary-to-cost ratio.")
-    st.markdown("3. Regional differences in cost structure materially affect effective purchasing power.")
-    st.markdown("4. Affordability can vary significantly even among countries with similar nominal pay.")
+    _render_insights(df)
