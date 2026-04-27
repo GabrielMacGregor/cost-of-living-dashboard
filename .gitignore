@@ -18,6 +18,11 @@ data/processed/*.parquet
 # Jupyter
 .ipynb_checkpoints/
 
+# Test artifacts
+.pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*/
+
 # OS/editor
 .DS_Store
 .vscode/
