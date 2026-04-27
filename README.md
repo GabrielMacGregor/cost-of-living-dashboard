@@ -14,15 +14,15 @@ Transform raw public datasets into clear, recruiter-friendly insights.
 ```text
 cost-of-living-dashboard/
 +-- data/
-¦   +-- raw/
-¦   +-- processed/
+|   +-- raw/
+|   +-- processed/
 +-- notebooks/
-¦   +-- eda.ipynb
+|   +-- eda.ipynb
 +-- src/
-¦   +-- etl.py
-¦   +-- charts.py
+|   +-- etl.py
+|   +-- charts.py
 +-- tests/
-¦   +-- test_etl.py
+|   +-- test_etl.py
 +-- .github/workflows/ci.yml
 +-- app.py
 +-- requirements.txt
@@ -48,6 +48,25 @@ pip install -r requirements.txt
 python src/etl.py
 streamlit run app.py
 ```
+
+If you do not have real raw files yet, the app still runs with bundled example data in
+`data/processed/example_country_affordability.csv`.
+
+## Raw Data Contract
+Create these two files in `data/raw/` before running ETL:
+
+- `cost_of_living.csv` columns:
+  - `country`
+  - `cost_of_living_index`
+  - `iso3`
+  - `region`
+- `developer_salaries.csv` columns:
+  - `country`
+  - `median_salary_usd`
+
+Template files are available:
+- `data/raw/cost_of_living_template.csv`
+- `data/raw/developer_salaries_template.csv`
 
 ## Docker
 ```bash
@@ -75,3 +94,10 @@ Add your dashboard GIF here after deployment:
 
 ## Deployment
 Deploy for free with Streamlit Cloud and paste the public URL in this README.
+
+## Streamlit Cloud (Checklist)
+1. Push this repo to GitHub.
+2. Go to Streamlit Cloud and click "New app".
+3. Select repo `GabrielMacGregor/cost-of-living-dashboard`.
+4. Set main file path to `app.py`.
+5. Deploy and copy the public app URL into this README.

@@ -12,6 +12,8 @@ data/processed/*.csv
 data/processed/*.parquet
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/raw/*_template.csv
+!data/processed/example_country_affordability.csv
 
 # Jupyter
 .ipynb_checkpoints/

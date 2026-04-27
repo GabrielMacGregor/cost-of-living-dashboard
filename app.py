@@ -8,14 +8,21 @@ st.set_page_config(page_title="Cost of Living vs Developer Salaries", layout="wi
 st.title("Global Cost of Living vs Developer Salaries")
 
 DATA_PATH = Path("data/processed/country_affordability.csv")
+EXAMPLE_DATA_PATH = Path("data/processed/example_country_affordability.csv")
 
 if not DATA_PATH.exists():
-    st.warning(
-        "Processed file not found. Run `python src/etl.py` after adding raw files in data/raw/."
-    )
-    st.stop()
-
-df = pd.read_csv(DATA_PATH)
+    if EXAMPLE_DATA_PATH.exists():
+        st.info(
+            "Showing bundled example data. For real analysis, add raw files in data/raw/ and run `python src/etl.py`."
+        )
+        df = pd.read_csv(EXAMPLE_DATA_PATH)
+    else:
+        st.warning(
+            "Processed file not found. Run `python src/etl.py` after adding raw files in data/raw/."
+        )
+        st.stop()
+else:
+    df = pd.read_csv(DATA_PATH)
 
 page = st.sidebar.radio(
     "Navigate",

@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from src.etl import affordability_index, build_country_dataset
 
@@ -32,3 +33,22 @@ def test_build_country_dataset_merges_and_adds_metric():
     assert "affordability_index" in out.columns
     assert len(out) == 2
     assert out.loc[out["country"] == "Brazil", "affordability_index"].iloc[0] == 750
+
+
+def test_build_country_dataset_validates_required_columns():
+    cost_df = pd.DataFrame(
+        {
+            "country": ["Brazil"],
+            "cost_of_living_index": [40],
+            "iso3": ["BRA"],
+        }
+    )
+    salary_df = pd.DataFrame(
+        {
+            "country": ["Brazil"],
+            "median_salary_usd": [30000],
+        }
+    )
+
+    with pytest.raises(ValueError, match="missing required columns"):
+        build_country_dataset(cost_df, salary_df)
