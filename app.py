@@ -1,27 +1,29 @@
 from pathlib import Path
-import streamlit as st
-import pandas as pd
 
-from src.charts import world_cost_map, salary_by_country_bar, affordability_scatter
+import pandas as pd
+import streamlit as st
+
+from src.charts import affordability_scatter, salary_by_country_bar, world_cost_map
 
 st.set_page_config(page_title="Cost of Living vs Developer Salaries", layout="wide")
 st.title("Global Cost of Living vs Developer Salaries")
 
-DATA_PATH = Path("data/processed/country_affordability.csv")
-EXAMPLE_DATA_PATH = Path("data/processed/example_country_affordability.csv")
+GOLD_FILE = Path("data/gold/country_affordability.csv")
+EXAMPLE_FILE = Path("data/gold/example_country_affordability.csv")
 
 
 def _load_data() -> pd.DataFrame | None:
-    if DATA_PATH.exists():
-        path = DATA_PATH
-    elif EXAMPLE_DATA_PATH.exists():
+    if GOLD_FILE.exists():
+        path = GOLD_FILE
+    elif EXAMPLE_FILE.exists():
         st.info(
-            "Showing bundled example data. For real analysis, add raw files in data/raw/ and run `python src/etl.py`."
+            "Showing bundled example data. "
+            "Run `python -m src.pipeline` to fetch and process real data."
         )
-        path = EXAMPLE_DATA_PATH
+        path = EXAMPLE_FILE
     else:
         st.warning(
-            "Processed file not found. Run `python src/etl.py` after adding raw files in data/raw/."
+            "No data found. Run `python -m src.pipeline` to build the gold layer."
         )
         return None
 
@@ -45,7 +47,7 @@ def _render_insights(df: pd.DataFrame) -> None:
     )
     st.markdown(
         f"2. The **{best_region}** region offers the highest average purchasing power "
-        f"for developers on a salary-to-cost basis."
+        "for developers on a salary-to-cost basis."
     )
     st.markdown(
         f"3. The global average affordability index across {len(df)} countries is "
@@ -61,10 +63,7 @@ df = _load_data()
 if df is None:
     st.stop()
 
-page = st.sidebar.radio(
-    "Navigate",
-    ["Overview", "Salaries", "Affordability", "Insights"],
-)
+page = st.sidebar.radio("Navigate", ["Overview", "Salaries", "Affordability", "Insights"])
 
 if page == "Overview":
     st.subheader("Overview")
