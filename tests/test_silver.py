@@ -93,23 +93,29 @@ def test_process_cost_raises_on_missing_cost_column():
 # ---------------------------------------------------------------------------
 
 
+_RATES = {"USD": 1.0, "EUR": 0.92, "BRL": 5.0}
+
+
 def _so_df(**overrides):
     data = {
-        "Country": ["Brazil", "Brazil", "Germany", "Germany", "Germany"],
-        "ConvertedCompYearly": [30000, 34000, 80000, 90000, 86000],
+        "country": ["Brazil", "Brazil", "Germany", "Germany", "Germany"],
+        "currency": ["BRL\tBrazilian real"] * 2 + ["EUR European Euro"] * 3,
+        "comp_total": [150000, 170000, 73600, 82800, 79120],
+        # BRL: 150000/5 = 30000 USD, 170000/5 = 34000 USD → median 32000
+        # EUR: 73600/0.92 = 80000 USD, 82800/0.92 = 90000 USD, 79120/0.92 = 86000 USD → median 86000
     }
     data.update(overrides)
     return pd.DataFrame(data)
 
 
 def test_process_salaries_computes_median():
-    out = process_developer_salaries(_so_df())
+    out = process_developer_salaries(_so_df(), _RATES)
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
-    assert brazil == 32000.0  # median of [30000, 34000]
+    assert brazil == pytest.approx(32000.0)
 
 
 def test_process_salaries_one_row_per_country():
-    out = process_developer_salaries(_so_df())
+    out = process_developer_salaries(_so_df(), _RATES)
     assert len(out) == out["country"].nunique()
 
 
@@ -119,22 +125,42 @@ def test_process_salaries_one_row_per_country():
 
 
 def test_process_salaries_drops_nan():
-    df = _so_df(**{"ConvertedCompYearly": [float("nan"), 34000, 80000, 90000, 86000]})
-    out = process_developer_salaries(df)
+    df = _so_df()
+    df.loc[0, "comp_total"] = float("nan")
+    out = process_developer_salaries(df, _RATES)
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
-    assert brazil == 34000.0
+    assert brazil == pytest.approx(34000.0)
 
 
 def test_process_salaries_removes_outliers_above_1m():
-    df = _so_df(**{"ConvertedCompYearly": [30000, 9_999_999, 80000, 90000, 86000]})
-    out = process_developer_salaries(df)
+    df = _so_df()
+    df.loc[0, "comp_total"] = 9_999_999 * 5  # 9.99M USD after BRL conversion
+    out = process_developer_salaries(df, _RATES)
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
-    assert brazil == 30000.0
+    assert brazil == pytest.approx(34000.0)
+
+
+def test_process_salaries_drops_unknown_currency():
+    df = _so_df()
+    df.loc[0, "currency"] = "XYZ Unknown"  # no rate available
+    out = process_developer_salaries(df, _RATES)
+    # Brazil row with unknown currency is dropped; only the remaining row survives
+    brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
+    assert brazil == pytest.approx(34000.0)
+
+
+def test_process_salaries_normalises_so_country_names():
+    df = pd.DataFrame({
+        "country": ["United States of America"],
+        "currency": ["USD\tUnited States dollar"],
+        "comp_total": [120000.0],
+    })
+    out = process_developer_salaries(df, _RATES)
+    assert "United States" in out["country"].values
 
 
 def test_process_salaries_handles_empty_country():
     df = _so_df()
-    df.loc[0, "Country"] = float("nan")
-    out = process_developer_salaries(df)
-    # "nan" string should appear as a country or be handled gracefully
+    df.loc[0, "country"] = float("nan")
+    out = process_developer_salaries(df, _RATES)
     assert "Brazil" in out["country"].values

@@ -109,9 +109,10 @@ def test_build_gold_layer_drops_zero_cost_rows():
 # ---------------------------------------------------------------------------
 
 
-def test_load_gold_missing_file_raises(tmp_path, monkeypatch):
+def test_load_gold_missing_file_raises(monkeypatch):
     import src.gold as gold_module
+    from pathlib import Path
 
-    monkeypatch.setattr(gold_module, "GOLD_FILE", tmp_path / "missing.csv")
+    monkeypatch.setattr(gold_module, "GOLD_FILE", Path("__nonexistent_gold_file__.csv"))
     with pytest.raises(FileNotFoundError):
         load_gold()

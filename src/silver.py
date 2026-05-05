@@ -7,8 +7,7 @@ logger = logging.getLogger(__name__)
 
 SILVER_DIR = Path("data/silver")
 
-# Numbeo uses country names that differ from the World Bank. This map normalises
-# the most common mismatches before the join so we retain as many countries as possible.
+# Numbeo country names → World Bank country names
 _NUMBEO_TO_WB: dict[str, str] = {
     "South Korea": "Korea, Rep.",
     "North Korea": "Korea, Dem. People's Rep.",
@@ -35,7 +34,38 @@ _NUMBEO_TO_WB: dict[str, str] = {
     "Gambia": "Gambia, The",
     "Bahamas": "Bahamas, The",
     "Macedonia": "North Macedonia",
-    "United States": "United States",
+}
+
+# Stack Overflow uses ISO 3166-1 long names; map to World Bank short names
+_SO_TO_WB: dict[str, str] = {
+    "United States of America": "United States",
+    "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
+    "Bolivia (Plurinational State of)": "Bolivia",
+    "Venezuela (Bolivarian Republic of)": "Venezuela, RB",
+    "Iran (Islamic Republic of)": "Iran, Islamic Rep.",
+    "Republic of Korea": "Korea, Rep.",
+    "Democratic People's Republic of Korea": "Korea, Dem. People's Rep.",
+    "United Republic of Tanzania": "Tanzania",
+    "Viet Nam": "Viet Nam",
+    "Syrian Arab Republic": "Syrian Arab Republic",
+    "Lao People's Democratic Republic": "Lao PDR",
+    "Kyrgyzstan": "Kyrgyz Republic",
+    "Slovakia": "Slovak Republic",
+    "North Macedonia": "North Macedonia",
+    "Congo, the Democratic Republic of the": "Congo, Dem. Rep.",
+    "Congo": "Congo, Rep.",
+    "Egypt": "Egypt, Arab Rep.",
+    "Yemen": "Yemen, Rep.",
+    "Gambia": "Gambia, The",
+    "Bahamas": "Bahamas, The",
+    "Palestine, State of": "West Bank and Gaza",
+    "Taiwan, Province of China": "Taiwan, China",
+    "Hong Kong": "Hong Kong SAR, China",
+    "Macao": "Macao SAR, China",
+    "Czech Republic": "Czechia",
+    "Russia": "Russian Federation",
+    "South Korea": "Korea, Rep.",
+    "Ivory Coast": "Côte d'Ivoire",
 }
 
 
@@ -61,7 +91,7 @@ def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.Data
     df["cost_of_living_index"] = pd.to_numeric(df["cost_of_living_index"], errors="coerce")
     df = df.dropna(subset=["cost_of_living_index"])
 
-    # Build World Bank lookup: normalised_name → {iso3, region}
+    # Build World Bank lookup: wb_name → {iso3, region}
     wb_lookup: dict[str, dict] = {
         row["name"]: {"iso3": row["iso3"], "region": row["region"]}
         for _, row in wb_df.iterrows()
@@ -78,6 +108,9 @@ def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.Data
     df["iso3"] = enriched.map(lambda t: t[0])
     df["region"] = enriched.map(lambda t: t[1])
 
+    # Normalise display name to World Bank standard
+    df["country"] = df["country"].map(lambda c: _NUMBEO_TO_WB.get(c, c))
+
     before = len(df)
     df = df.dropna(subset=["iso3", "region"])
     dropped = before - len(df)
@@ -88,17 +121,43 @@ def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.Data
     return df.reset_index(drop=True)
 
 
-def process_developer_salaries(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """Clean Stack Overflow survey data and compute median annual salary by country.
+def process_developer_salaries(
+    raw_df: pd.DataFrame, exchange_rates: dict[str, float]
+) -> pd.DataFrame:
+    """Clean Stack Overflow survey data and compute median salary in USD by country.
 
-    raw_df must have columns: Country, ConvertedCompYearly.
-    Outliers above $1 000 000 USD are removed before computing the median.
+    raw_df must have columns: country, currency, comp_total.
+    exchange_rates maps ISO 4217 currency code → units per 1 USD (e.g. {"EUR": 0.92}).
+    Salaries above $1 000 000 USD are treated as data errors and removed.
     """
-    df = raw_df.rename(columns={"Country": "country", "ConvertedCompYearly": "salary_usd"}).copy()
+    df = raw_df.copy()
     df["country"] = df["country"].astype(str).str.strip()
-    df["salary_usd"] = pd.to_numeric(df["salary_usd"], errors="coerce")
+    df["comp_total"] = pd.to_numeric(df["comp_total"], errors="coerce")
+    df = df.dropna(subset=["comp_total"])
+
+    # Extract ISO 4217 code from strings like "EUR European Euro" or "USD\tUnited States dollar"
+    df["currency_code"] = df["currency"].astype(str).str[:3].str.strip()
+
+    # Convert to USD: local_amount / rate = USD amount
+    def _to_usd(row) -> float | None:
+        code = row["currency_code"]
+        rate = exchange_rates.get(code)
+        if rate and rate > 0:
+            return row["comp_total"] / rate
+        return None
+
+    df["salary_usd"] = df.apply(_to_usd, axis=1)
+    before = len(df)
     df = df.dropna(subset=["salary_usd"])
     df = df[df["salary_usd"] <= 1_000_000]
+    dropped = before - len(df)
+    if dropped:
+        logger.warning(
+            "Silver developer_salaries: dropped %d rows (unknown currency or outlier)", dropped
+        )
+
+    # Normalise country names to World Bank standard
+    df["country"] = df["country"].map(lambda c: _SO_TO_WB.get(c, c))
 
     result = (
         df.groupby("country", as_index=False)["salary_usd"]
@@ -115,7 +174,7 @@ def save_silver(df: pd.DataFrame, name: str) -> Path:
     SILVER_DIR.mkdir(parents=True, exist_ok=True)
     path = SILVER_DIR / f"{name}.csv"
     df.to_csv(path, index=False)
-    logger.info("Silver: saved %d rows → %s", len(df), path)
+    logger.info("Silver: saved %d rows -> %s", len(df), path)
     return path
 
 
