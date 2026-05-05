@@ -59,15 +59,78 @@ def _render_insights(df: pd.DataFrame) -> None:
     )
 
 
+def _filter_data(df: pd.DataFrame) -> pd.DataFrame:
+    regions = sorted(df["region"].dropna().unique())
+    selected_regions = st.sidebar.multiselect("Region", regions, default=regions)
+
+    salary_min, salary_max = st.sidebar.slider(
+        "Median salary range",
+        min_value=int(df["median_salary_usd"].min()),
+        max_value=int(df["median_salary_usd"].max()),
+        value=(int(df["median_salary_usd"].min()), int(df["median_salary_usd"].max())),
+        step=1000,
+        format="$%d",
+    )
+
+    filtered = df[
+        df["region"].isin(selected_regions)
+        & df["median_salary_usd"].between(salary_min, salary_max)
+    ].copy()
+
+    if filtered.empty:
+        st.warning("No countries match the selected filters.")
+        st.stop()
+
+    return filtered.sort_values("affordability_index", ascending=False).reset_index(drop=True)
+
+
+def _render_kpis(df: pd.DataFrame) -> None:
+    best = df.iloc[0]
+    avg_affordability = df["affordability_index"].mean()
+    avg_salary = df["median_salary_usd"].mean()
+    avg_cost = df["cost_of_living_index"].mean()
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Countries", f"{len(df)}")
+    col2.metric("Top affordability", f"{best['country']}", f"{best['affordability_index']:.0f}")
+    col3.metric("Avg salary", f"${avg_salary:,.0f}")
+    col4.metric("Avg cost index", f"{avg_cost:.1f}", f"Affordability avg {avg_affordability:.0f}")
+
+
+def _render_rankings(df: pd.DataFrame, top_n: int) -> None:
+    ranking_cols = st.columns(2)
+    display_cols = ["country", "region", "median_salary_usd", "cost_of_living_index", "affordability_index"]
+
+    with ranking_cols[0]:
+        st.subheader(f"Top {top_n} Affordability")
+        st.dataframe(
+            df.head(top_n)[display_cols],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    with ranking_cols[1]:
+        st.subheader(f"Bottom {top_n} Affordability")
+        st.dataframe(
+            df.tail(top_n).sort_values("affordability_index")[display_cols],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 df = _load_data()
 if df is None:
     st.stop()
 
 page = st.sidebar.radio("Navigate", ["Overview", "Salaries", "Affordability", "Insights"])
+top_n = st.sidebar.slider("Ranking size", min_value=3, max_value=20, value=5)
+df = _filter_data(df)
+_render_kpis(df)
 
 if page == "Overview":
     st.subheader("Overview")
     st.plotly_chart(world_cost_map(df), use_container_width=True)
+    _render_rankings(df, top_n)
 
 elif page == "Salaries":
     st.subheader("Salaries")

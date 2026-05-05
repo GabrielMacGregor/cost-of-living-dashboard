@@ -49,12 +49,14 @@ def build_gold_layer(cost_df: pd.DataFrame, salary_df: pd.DataFrame) -> pd.DataF
     return merged.sort_values("affordability_index", ascending=False).reset_index(drop=True)
 
 
-def save_gold(df: pd.DataFrame) -> Path:
+def save_gold(df: pd.DataFrame, output_dir: Path | None = None) -> Path:
     """Persist the gold layer to disk."""
-    GOLD_DIR.mkdir(parents=True, exist_ok=True)
-    df.to_csv(GOLD_FILE, index=False)
-    logger.info("Gold: saved %d rows → %s", len(df), GOLD_FILE)
-    return GOLD_FILE
+    target_dir = output_dir if output_dir is not None else GOLD_DIR
+    target = target_dir / "country_affordability.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(target, index=False)
+    logger.info("Gold: saved %d rows -> %s", len(df), target)
+    return target
 
 
 def load_gold() -> pd.DataFrame:

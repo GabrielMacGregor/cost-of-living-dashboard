@@ -122,18 +122,23 @@ def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.Data
 
 
 def process_developer_salaries(
-    raw_df: pd.DataFrame, exchange_rates: dict[str, float]
-) -> pd.DataFrame:
+    raw_df: pd.DataFrame,
+    exchange_rates: dict[str, float],
+    outlier_threshold: float = 1_000_000,
+) -> tuple[pd.DataFrame, dict]:
     """Clean Stack Overflow survey data and compute median salary in USD by country.
 
     raw_df must have columns: country, currency, comp_total.
     exchange_rates maps ISO 4217 currency code → units per 1 USD (e.g. {"EUR": 0.92}).
-    Salaries above $1 000 000 USD are treated as data errors and removed.
+    Salaries above outlier_threshold USD are treated as data errors and removed.
+
+    Returns (result_df, stats) where stats contains quality metrics for the pipeline report.
     """
     df = raw_df.copy()
     df["country"] = df["country"].astype(str).str.strip()
     df["comp_total"] = pd.to_numeric(df["comp_total"], errors="coerce")
     df = df.dropna(subset=["comp_total"])
+    rows_in = len(df)
 
     # Extract ISO 4217 code from strings like "EUR European Euro" or "USD\tUnited States dollar"
     df["currency_code"] = df["currency"].astype(str).str[:3].str.strip()
@@ -147,13 +152,17 @@ def process_developer_salaries(
         return None
 
     df["salary_usd"] = df.apply(_to_usd, axis=1)
-    before = len(df)
+    unknown_currencies = int(df["salary_usd"].isna().sum())
     df = df.dropna(subset=["salary_usd"])
-    df = df[df["salary_usd"] <= 1_000_000]
-    dropped = before - len(df)
-    if dropped:
+
+    rows_before_outlier = len(df)
+    df = df[df["salary_usd"] <= outlier_threshold]
+    outliers_removed = rows_before_outlier - len(df)
+
+    total_dropped = rows_in - len(df)
+    if total_dropped:
         logger.warning(
-            "Silver developer_salaries: dropped %d rows (unknown currency or outlier)", dropped
+            "Silver developer_salaries: dropped %d rows (unknown currency or outlier)", total_dropped
         )
 
     # Normalise country names to World Bank standard
@@ -165,8 +174,15 @@ def process_developer_salaries(
         .rename(columns={"salary_usd": "median_salary_usd"})
     )
 
+    stats = {
+        "rows_in": rows_in,
+        "unknown_currencies": unknown_currencies,
+        "outliers_removed": outliers_removed,
+        "countries": len(result),
+    }
+
     logger.info("Silver developer_salaries: %d countries", len(result))
-    return result
+    return result, stats
 
 
 def save_silver(df: pd.DataFrame, name: str) -> Path:
