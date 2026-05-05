@@ -1,6 +1,14 @@
 # Global Cost of Living vs Developer Salaries
 
-A storytelling dashboard that compares cost of living and developer salaries across countries to surface affordability insights.
+[![CI](https://github.com/GabrielMacGregor/cost-of-living-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielMacGregor/cost-of-living-dashboard/actions/workflows/ci.yml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+
+**[Live Demo →](https://your-app.streamlit.app)** ← _replace after Streamlit Cloud deploy_
+
+![Dashboard screenshot](docs/screenshot.png)
+<!-- Add a screenshot after first deploy: grab a PNG of the dashboard and save it to docs/screenshot.png -->
+
+A data product that compares developer salaries and cost of living across 120+ countries to surface affordability insights. Built with a fully automated medallion pipeline (bronze → silver → gold) and deployed as an interactive Streamlit dashboard.
 
 ## Project Goal
 
@@ -87,6 +95,27 @@ affordability_index = median_salary_usd / cost_of_living_index
 ```
 
 Higher is better — it captures how far a developer's salary goes relative to local costs.
+
+## Methodology & Limitations
+
+The pipeline builds a country-level affordability dataset from four public sources:
+
+- Numbeo provides the country cost-of-living index.
+- Stack Overflow Survey 2024 provides developer compensation in local currency.
+- Open Exchange Rates converts compensation to USD.
+- World Bank metadata standardizes country names, ISO3 codes, and regions.
+
+Developer salaries are grouped by country using the median compensation after conversion to USD.
+Rows with missing compensation, unknown currencies, unmatched countries, or salaries above
+USD 1,000,000 are excluded as incomplete or likely outlier records.
+
+Important limitations:
+
+- Exchange rates are fetched at pipeline runtime, so results can shift between runs.
+- Numbeo and Stack Overflow are not fully representative samples of every country.
+- The index compares salary to a broad cost-of-living score; it does not model taxes, benefits,
+  seniority mix, rent separately, family size, or local purchasing patterns.
+- Countries only appear in the gold layer when both cost-of-living and salary data can be matched.
 
 ## Docker
 

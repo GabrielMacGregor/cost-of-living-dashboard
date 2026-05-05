@@ -109,13 +109,13 @@ def _so_df(**overrides):
 
 
 def test_process_salaries_computes_median():
-    out = process_developer_salaries(_so_df(), _RATES)
+    out, _ = process_developer_salaries(_so_df(), _RATES)
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
     assert brazil == pytest.approx(32000.0)
 
 
 def test_process_salaries_one_row_per_country():
-    out = process_developer_salaries(_so_df(), _RATES)
+    out, _ = process_developer_salaries(_so_df(), _RATES)
     assert len(out) == out["country"].nunique()
 
 
@@ -127,7 +127,7 @@ def test_process_salaries_one_row_per_country():
 def test_process_salaries_drops_nan():
     df = _so_df()
     df.loc[0, "comp_total"] = float("nan")
-    out = process_developer_salaries(df, _RATES)
+    out, _ = process_developer_salaries(df, _RATES)
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
     assert brazil == pytest.approx(34000.0)
 
@@ -135,7 +135,7 @@ def test_process_salaries_drops_nan():
 def test_process_salaries_removes_outliers_above_1m():
     df = _so_df()
     df.loc[0, "comp_total"] = 9_999_999 * 5  # 9.99M USD after BRL conversion
-    out = process_developer_salaries(df, _RATES)
+    out, _ = process_developer_salaries(df, _RATES)
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
     assert brazil == pytest.approx(34000.0)
 
@@ -143,7 +143,7 @@ def test_process_salaries_removes_outliers_above_1m():
 def test_process_salaries_drops_unknown_currency():
     df = _so_df()
     df.loc[0, "currency"] = "XYZ Unknown"  # no rate available
-    out = process_developer_salaries(df, _RATES)
+    out, _ = process_developer_salaries(df, _RATES)
     # Brazil row with unknown currency is dropped; only the remaining row survives
     brazil = out.loc[out["country"] == "Brazil", "median_salary_usd"].iloc[0]
     assert brazil == pytest.approx(34000.0)
@@ -155,12 +155,52 @@ def test_process_salaries_normalises_so_country_names():
         "currency": ["USD\tUnited States dollar"],
         "comp_total": [120000.0],
     })
-    out = process_developer_salaries(df, _RATES)
+    out, _ = process_developer_salaries(df, _RATES)
     assert "United States" in out["country"].values
 
 
 def test_process_salaries_handles_empty_country():
     df = _so_df()
     df.loc[0, "country"] = float("nan")
-    out = process_developer_salaries(df, _RATES)
+    out, _ = process_developer_salaries(df, _RATES)
     assert "Brazil" in out["country"].values
+
+
+# ---------------------------------------------------------------------------
+# process_developer_salaries — stats dict
+# ---------------------------------------------------------------------------
+
+
+def test_process_salaries_stats_keys():
+    _, stats = process_developer_salaries(_so_df(), _RATES)
+    assert set(stats) == {"rows_in", "unknown_currencies", "outliers_removed", "countries"}
+
+
+def test_process_salaries_stats_counts():
+    _, stats = process_developer_salaries(_so_df(), _RATES)
+    assert stats["rows_in"] == 5
+    assert stats["countries"] == 2
+    assert stats["unknown_currencies"] == 0
+    assert stats["outliers_removed"] == 0
+
+
+def test_process_salaries_stats_tracks_unknown_currency():
+    df = _so_df()
+    df.loc[0, "currency"] = "XYZ Unknown"
+    _, stats = process_developer_salaries(df, _RATES)
+    assert stats["unknown_currencies"] >= 1
+
+
+def test_process_salaries_stats_tracks_outliers():
+    df = _so_df()
+    df.loc[0, "comp_total"] = 9_999_999 * 5
+    _, stats = process_developer_salaries(df, _RATES)
+    assert stats["outliers_removed"] >= 1
+
+
+def test_process_salaries_custom_outlier_threshold():
+    df = _so_df()
+    # threshold=29000 removes both Brazil rows (30000 and 34000 USD)
+    out, stats = process_developer_salaries(df, _RATES, outlier_threshold=29_000)
+    assert "Brazil" not in out["country"].values
+    assert stats["outliers_removed"] >= 1
