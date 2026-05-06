@@ -3,9 +3,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
-BRONZE_DIR = Path("data/bronze")
+BRONZE_DIR = config.BRONZE_DIR
 
 
 def save_bronze(df: pd.DataFrame, name: str) -> Path:

@@ -43,9 +43,11 @@ cost-of-living-dashboard/
 │   └── eda.ipynb
 ├── src/
 │   ├── pipeline.py          # orchestrates all 6 steps
+│   ├── config.py            # central paths, URLs, and pipeline defaults
 │   ├── bronze.py            # save/load bronze layer
 │   ├── silver.py            # clean Numbeo + SO data, enrich with World Bank
 │   ├── gold.py              # merge silver layers, compute affordability index
+│   ├── quality.py           # pipeline quality report generation
 │   ├── ingest_numbeo.py     # fetch Numbeo rankings
 │   ├── ingest_stackoverflow.py  # fetch SO survey
 │   ├── ingest_worldbank.py  # fetch World Bank country metadata
@@ -53,7 +55,10 @@ cost-of-living-dashboard/
 │   └── charts.py            # Plotly chart helpers
 ├── tests/
 │   ├── test_etl.py          # gold layer unit tests
-│   └── test_silver.py       # silver layer unit tests
+│   ├── test_silver.py       # silver layer unit tests
+│   ├── test_pipeline.py     # pipeline orchestration and CLI tests
+│   ├── test_quality.py      # quality report tests
+│   └── test_charts.py       # chart helper tests
 ├── .github/workflows/ci.yml
 ├── app.py
 ├── requirements.txt
@@ -81,12 +86,29 @@ streamlit run app.py
 
 The dashboard also runs without executing the pipeline — it falls back to bundled example data.
 
+### Pipeline CLI
+
+```bash
+python -m src.pipeline \
+  --year 2024 \
+  --output data/gold \
+  --salary-outlier-threshold 1000000
+```
+
+The pipeline writes:
+
+- `data/bronze/*.csv`: raw source snapshots
+- `data/silver/*.csv`: cleaned per-source datasets
+- `data/gold/country_affordability.csv`: final dashboard dataset
+- `data/gold/pipeline_run_summary.json`: quality and lineage report
+
 ## Dashboard Pages
 
 - **Overview**: world map with cost-of-living signal
 - **Salaries**: top 20 median developer salaries by country
 - **Affordability**: scatter plot of salary vs cost of living, colored by region
 - **Insights**: data-backed written conclusions
+- **Data Quality**: latest pipeline run metrics, source row counts, and dropped-match details
 
 ## Affordability Index
 
@@ -116,6 +138,21 @@ Important limitations:
 - The index compares salary to a broad cost-of-living score; it does not model taxes, benefits,
   seniority mix, rent separately, family size, or local purchasing patterns.
 - Countries only appear in the gold layer when both cost-of-living and salary data can be matched.
+
+## Data Quality Report
+
+Each full pipeline run creates `data/gold/pipeline_run_summary.json` with:
+
+- run timestamp and selected year;
+- raw row counts by source;
+- silver-layer row counts and country coverage;
+- unknown currency counts;
+- removed salary outliers;
+- countries dropped because no cross-source match was available;
+- gold-layer match rate.
+
+The dashboard reads this file in the **Data Quality** page when available. This makes the ETL
+output auditable without opening intermediate CSV files manually.
 
 ## Docker
 

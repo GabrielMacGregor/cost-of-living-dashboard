@@ -3,10 +3,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
-GOLD_DIR = Path("data/gold")
-GOLD_FILE = GOLD_DIR / "country_affordability.csv"
+GOLD_DIR = config.GOLD_DIR
+GOLD_FILE = config.GOLD_FILE
 
 _REQUIRED_COST = {"country", "cost_of_living_index", "iso3", "region"}
 _REQUIRED_SALARY = {"country", "median_salary_usd"}

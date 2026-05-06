@@ -2,9 +2,11 @@ import logging
 
 import requests
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
-ER_API_URL = "https://open.er-api.com/v6/latest/USD"
+ER_API_URL = config.ER_API_URL
 
 
 def fetch_exchange_rates() -> dict[str, float]:

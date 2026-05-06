@@ -4,9 +4,11 @@ import logging
 import pandas as pd
 import requests
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
-NUMBEO_URL = "https://www.numbeo.com/cost-of-living/rankings_by_country.jsp"
+NUMBEO_URL = config.NUMBEO_URL
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; cost-of-living-dashboard/1.0)"}
 
 

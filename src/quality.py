@@ -66,3 +66,10 @@ class PipelineRunSummary:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
         logger.info("Quality: saved pipeline run summary -> %s", path)
+
+
+def load_pipeline_summary(path: Path) -> dict | None:
+    """Load a pipeline summary JSON file if it exists."""
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))

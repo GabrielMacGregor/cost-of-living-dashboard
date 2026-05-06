@@ -1,26 +1,23 @@
-from pathlib import Path
-
 import pandas as pd
 import streamlit as st
 
+from src import config
 from src.charts import affordability_scatter, salary_by_country_bar, world_cost_map
+from src.quality import load_pipeline_summary
 
 st.set_page_config(page_title="Cost of Living vs Developer Salaries", layout="wide")
 st.title("Global Cost of Living vs Developer Salaries")
 
-GOLD_FILE = Path("data/gold/country_affordability.csv")
-EXAMPLE_FILE = Path("data/gold/example_country_affordability.csv")
-
 
 def _load_data() -> pd.DataFrame | None:
-    if GOLD_FILE.exists():
-        path = GOLD_FILE
-    elif EXAMPLE_FILE.exists():
+    if config.GOLD_FILE.exists():
+        path = config.GOLD_FILE
+    elif config.EXAMPLE_GOLD_FILE.exists():
         st.info(
             "Showing bundled example data. "
             "Run `python -m src.pipeline` to fetch and process real data."
         )
-        path = EXAMPLE_FILE
+        path = config.EXAMPLE_GOLD_FILE
     else:
         st.warning(
             "No data found. Run `python -m src.pipeline` to build the gold layer."
@@ -118,12 +115,55 @@ def _render_rankings(df: pd.DataFrame, top_n: int) -> None:
         )
 
 
+def _render_data_quality() -> None:
+    summary = load_pipeline_summary(config.PIPELINE_SUMMARY_FILE)
+    if summary is None:
+        st.info("No pipeline quality report found. Run `python -m src.pipeline` to generate one.")
+        return
+
+    gold = summary.get("gold", {})
+    sources = summary.get("sources", {})
+    salaries = summary.get("silver", {}).get("developer_salaries", {})
+    cost = summary.get("silver", {}).get("cost_of_living", {})
+
+    st.subheader("Data Quality")
+    st.caption(f"Last pipeline run: {summary.get('run_at', 'unknown')}")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Gold countries", gold.get("countries", 0))
+    col2.metric("Match rate", f"{gold.get('match_rate_pct', 0):.1f}%")
+    col3.metric("Unknown currencies", salaries.get("unknown_currencies", 0))
+    col4.metric("Salary outliers", salaries.get("outliers_removed", 0))
+
+    st.subheader("Source Rows")
+    source_rows = [
+        {"source": name, "rows": details.get("rows", 0)}
+        for name, details in sources.items()
+    ]
+    st.dataframe(pd.DataFrame(source_rows), use_container_width=True, hide_index=True)
+
+    dropped_cols = st.columns(2)
+    with dropped_cols[0]:
+        st.subheader("Dropped Cost Countries")
+        st.write(cost.get("dropped_countries", []))
+    with dropped_cols[1]:
+        st.subheader("Dropped Gold Matches")
+        st.write(gold.get("dropped_no_match", []))
+
+
 df = _load_data()
 if df is None:
     st.stop()
 
-page = st.sidebar.radio("Navigate", ["Overview", "Salaries", "Affordability", "Insights"])
+page = st.sidebar.radio(
+    "Navigate", ["Overview", "Salaries", "Affordability", "Insights", "Data Quality"]
+)
 top_n = st.sidebar.slider("Ranking size", min_value=3, max_value=20, value=5)
+
+if page == "Data Quality":
+    _render_data_quality()
+    st.stop()
+
 df = _filter_data(df)
 _render_kpis(df)
 
