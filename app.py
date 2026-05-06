@@ -2,7 +2,12 @@ import pandas as pd
 import streamlit as st
 
 from src import config
-from src.charts import affordability_ranking_bar, affordability_scatter, salary_by_country_bar, world_cost_map
+from src.charts import (
+    affordability_ranking_bar,
+    affordability_scatter,
+    salary_by_country_bar,
+    world_cost_map,
+)
 from src.quality import load_pipeline_summary
 
 st.set_page_config(page_title="Cost of Living vs Developer Salaries", layout="wide")
@@ -96,7 +101,13 @@ def _render_kpis(df: pd.DataFrame) -> None:
 
 def _render_rankings(df: pd.DataFrame, top_n: int) -> None:
     ranking_cols = st.columns(2)
-    display_cols = ["country", "region", "median_salary_usd", "cost_of_living_index", "affordability_index"]
+    display_cols = [
+        "country",
+        "region",
+        "median_salary_usd",
+        "cost_of_living_index",
+        "affordability_index",
+    ]
 
     with ranking_cols[0]:
         st.subheader(f"Top {top_n} Affordability")

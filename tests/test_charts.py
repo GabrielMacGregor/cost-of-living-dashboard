@@ -3,7 +3,12 @@
 import pandas as pd
 import pytest
 
-from src.charts import affordability_ranking_bar, affordability_scatter, salary_by_country_bar, world_cost_map
+from src.charts import (
+    affordability_ranking_bar,
+    affordability_scatter,
+    salary_by_country_bar,
+    world_cost_map,
+)
 
 
 def _chart_df() -> pd.DataFrame:

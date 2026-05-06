@@ -1,5 +1,5 @@
-import plotly.express as px
 import pandas as pd
+import plotly.express as px
 
 TOP_N_SALARIES = 20
 TOP_N_AFFORDABILITY = 20

@@ -7,7 +7,6 @@ import pandas as pd
 from src import config
 from src.pipeline import _parse_args, run_pipeline
 
-
 # ---------------------------------------------------------------------------
 # CLI argument parsing
 # ---------------------------------------------------------------------------

@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 from src.quality import PipelineRunSummary, load_pipeline_summary
 
-
 TEST_OUTPUT_DIR = Path("data/gold")
 
 
@@ -27,7 +26,11 @@ def test_record_source():
 
 def test_record_silver_cost():
     summary = PipelineRunSummary(year=2024)
-    summary.record_silver_cost(rows_in=100, rows_out=90, dropped_countries=["Fakeland", "Neverland"])
+    summary.record_silver_cost(
+        rows_in=100,
+        rows_out=90,
+        dropped_countries=["Fakeland", "Neverland"],
+    )
     s = summary.silver["cost_of_living"]
     assert s["rows_in"] == 100
     assert s["rows_out"] == 90
@@ -37,7 +40,12 @@ def test_record_silver_cost():
 
 def test_record_silver_salaries():
     summary = PipelineRunSummary(year=2024)
-    summary.record_silver_salaries(rows_in=5000, countries=80, unknown_currencies=200, outliers_removed=12)
+    summary.record_silver_salaries(
+        rows_in=5000,
+        countries=80,
+        unknown_currencies=200,
+        outliers_removed=12,
+    )
     s = summary.silver["developer_salaries"]
     assert s["rows_in"] == 5000
     assert s["countries"] == 80
@@ -47,7 +55,10 @@ def test_record_silver_salaries():
 
 def test_record_gold_match_rate():
     summary = PipelineRunSummary(year=2024)
-    summary.record_gold(countries=90, dropped_no_match=["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"])
+    summary.record_gold(
+        countries=90,
+        dropped_no_match=["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+    )
     assert summary.gold["countries"] == 90
     assert summary.gold["match_rate_pct"] == 90.0  # 90/(90+10)
 

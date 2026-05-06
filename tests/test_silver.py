@@ -4,7 +4,6 @@ import pytest
 
 from src.silver import process_cost_of_living, process_developer_salaries
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
