@@ -164,7 +164,8 @@ def process_developer_salaries(
     total_dropped = rows_in - len(df)
     if total_dropped:
         logger.warning(
-            "Silver developer_salaries: dropped %d rows (unknown currency or outlier)", total_dropped
+            "Silver developer_salaries: dropped %d rows (unknown currency or outlier)",
+            total_dropped,
         )
 
     # Normalise country names to World Bank standard

@@ -4,7 +4,6 @@ import pytest
 
 from src.gold import affordability_index, build_gold_layer, load_gold
 
-
 # ---------------------------------------------------------------------------
 # affordability_index
 # ---------------------------------------------------------------------------
@@ -73,7 +72,9 @@ def test_build_gold_layer_sorted_descending():
 
 
 def test_build_gold_layer_validates_required_columns():
-    bad_cost = pd.DataFrame({"country": ["Brazil"], "cost_of_living_index": [40.0], "iso3": ["BRA"]})
+    bad_cost = pd.DataFrame(
+        {"country": ["Brazil"], "cost_of_living_index": [40.0], "iso3": ["BRA"]}
+    )
     with pytest.raises(ValueError, match="missing required columns"):
         build_gold_layer(bad_cost, _salary_df())
 
@@ -97,7 +98,10 @@ def test_build_gold_layer_drops_zero_cost_rows():
         region=["LATAM", "Europe", "NA"],
     )
     salary_df = pd.DataFrame(
-        {"country": ["Brazil", "Germany", "Canada"], "median_salary_usd": [30000.0, 84000.0, 90000.0]}
+        {
+            "country": ["Brazil", "Germany", "Canada"],
+            "median_salary_usd": [30000.0, 84000.0, 90000.0],
+        }
     )
     out = build_gold_layer(cost_df, salary_df)
     assert len(out) == 2
@@ -110,8 +114,9 @@ def test_build_gold_layer_drops_zero_cost_rows():
 
 
 def test_load_gold_missing_file_raises(monkeypatch):
-    import src.gold as gold_module
     from pathlib import Path
+
+    import src.gold as gold_module
 
     monkeypatch.setattr(gold_module, "GOLD_FILE", Path("__nonexistent_gold_file__.csv"))
     with pytest.raises(FileNotFoundError):
