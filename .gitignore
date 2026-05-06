@@ -9,6 +9,7 @@ data/bronze/
 data/silver/
 # Gold: only the generated file is ignored; the bundled example is tracked
 data/gold/country_affordability.csv
+data/gold/*.json
 # Raw: only template CSVs are tracked; real data files are ignored
 data/raw/*.csv
 data/raw/*.json

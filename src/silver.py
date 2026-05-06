@@ -3,9 +3,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
-SILVER_DIR = Path("data/silver")
+SILVER_DIR = config.SILVER_DIR
 
 # Numbeo country names → World Bank country names
 _NUMBEO_TO_WB: dict[str, str] = {
@@ -124,7 +126,7 @@ def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.Data
 def process_developer_salaries(
     raw_df: pd.DataFrame,
     exchange_rates: dict[str, float],
-    outlier_threshold: float = 1_000_000,
+    outlier_threshold: float = config.SALARY_OUTLIER_THRESHOLD,
 ) -> tuple[pd.DataFrame, dict]:
     """Clean Stack Overflow survey data and compute median salary in USD by country.
 

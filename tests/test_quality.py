@@ -1,7 +1,12 @@
 """Tests for PipelineRunSummary (src/quality.py)."""
 import json
+from pathlib import Path
+from unittest.mock import patch
 
-from src.quality import PipelineRunSummary
+from src.quality import PipelineRunSummary, load_pipeline_summary
+
+
+TEST_OUTPUT_DIR = Path("data/gold")
 
 
 def test_summary_has_timestamp():
@@ -59,13 +64,13 @@ def test_record_gold_all_dropped():
     assert summary.gold["match_rate_pct"] == 0.0
 
 
-def test_save_creates_valid_json(tmp_path):
+def test_save_creates_valid_json():
     summary = PipelineRunSummary(year=2024)
     summary.record_source("numbeo", rows=120)
     summary.record_gold(countries=80, dropped_no_match=["TestLand"])
     summary.output_path = "data/gold/country_affordability.csv"
 
-    out = tmp_path / "summary.json"
+    out = TEST_OUTPUT_DIR / "summary.json"
     summary.save(out)
 
     assert out.exists()
@@ -77,8 +82,23 @@ def test_save_creates_valid_json(tmp_path):
     assert data["output_path"] == "data/gold/country_affordability.csv"
 
 
-def test_save_creates_parent_dirs(tmp_path):
+def test_save_creates_parent_dirs():
     summary = PipelineRunSummary(year=2024)
-    nested = tmp_path / "a" / "b" / "summary.json"
-    summary.save(nested)
-    assert nested.exists()
+    nested = TEST_OUTPUT_DIR / "a" / "b" / "summary.json"
+    with patch.object(Path, "mkdir") as mkdir, patch.object(Path, "write_text"):
+        summary.save(nested)
+    mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+def test_load_pipeline_summary_missing_file_returns_none():
+    assert load_pipeline_summary(TEST_OUTPUT_DIR / "missing.json") is None
+
+
+def test_load_pipeline_summary_reads_json():
+    summary = PipelineRunSummary(year=2024)
+    out = TEST_OUTPUT_DIR / "loadable_summary.json"
+    summary.save(out)
+
+    loaded = load_pipeline_summary(out)
+    assert loaded is not None
+    assert loaded["year"] == 2024

@@ -3,9 +3,11 @@ import logging
 import pandas as pd
 import requests
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
-WB_URL = "https://api.worldbank.org/v2/country?format=json&per_page=300"
+WB_URL = config.WB_URL
 
 
 def fetch_worldbank_countries() -> pd.DataFrame:

@@ -4,14 +4,13 @@ import logging
 import pandas as pd
 import requests
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
 # TidyTuesday mirrors the Stack Overflow 2024 Developer Survey with a stable, public URL.
 # Original source: https://survey.stackoverflow.co/2024/
-SO_SURVEY_URL = (
-    "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main"
-    "/data/2024/2024-09-03/stackoverflow_survey_single_response.csv"
-)
+SO_SURVEY_URL = config.SO_SURVEY_URL
 
 
 def fetch_stackoverflow_salaries(url: str = SO_SURVEY_URL) -> pd.DataFrame:

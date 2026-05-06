@@ -85,7 +85,7 @@ def test_run_pipeline_orchestrates_medallion_steps(monkeypatch):
     monkeypatch.setattr("src.pipeline.save_bronze", fake_save_bronze)
     monkeypatch.setattr("src.pipeline.save_silver", fake_save_silver)
     monkeypatch.setattr("src.pipeline.save_gold", fake_save_gold)
-    monkeypatch.setattr("src.quality.PipelineRunSummary.save", lambda self, path: None)
+    monkeypatch.setattr("src.pipeline.PipelineRunSummary.save", lambda self, path: None)
 
     run_pipeline(year=2024)
 
