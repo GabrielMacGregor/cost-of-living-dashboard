@@ -2,6 +2,7 @@ import plotly.express as px
 import pandas as pd
 
 TOP_N_SALARIES = 20
+TOP_N_AFFORDABILITY = 20
 
 
 def _require_columns(df: pd.DataFrame, required: set[str], fn_name: str) -> None:
@@ -49,4 +50,24 @@ def affordability_scatter(df: pd.DataFrame):
         color="region",
         hover_name="country",
         title="Affordability: Salary vs Cost of Living",
+    )
+
+
+def affordability_ranking_bar(df: pd.DataFrame, top_n: int = TOP_N_AFFORDABILITY):
+    """Horizontal bar chart of top countries by affordability index."""
+    _require_columns(
+        df,
+        {"country", "affordability_index", "region"},
+        "affordability_ranking_bar",
+    )
+    sorted_df = df.sort_values("affordability_index", ascending=False).head(top_n)
+    sorted_df = sorted_df.sort_values("affordability_index", ascending=True)
+    return px.bar(
+        sorted_df,
+        x="affordability_index",
+        y="country",
+        color="region",
+        orientation="h",
+        title=f"Top {top_n} Countries by Affordability Index",
+        labels={"affordability_index": "Affordability Index", "country": ""},
     )

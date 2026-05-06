@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from src.charts import affordability_scatter, salary_by_country_bar, world_cost_map
+from src.charts import affordability_ranking_bar, affordability_scatter, salary_by_country_bar, world_cost_map
 
 
 def _chart_df() -> pd.DataFrame:
@@ -35,6 +35,24 @@ def test_affordability_scatter_uses_cost_and_salary_axes():
     fig = affordability_scatter(_chart_df())
     assert fig.layout.xaxis.title.text == "cost_of_living_index"
     assert fig.layout.yaxis.title.text == "median_salary_usd"
+
+
+def test_affordability_ranking_bar_is_horizontal():
+    fig = affordability_ranking_bar(_chart_df(), top_n=3)
+    assert fig.data[0].orientation == "h"
+
+
+def test_affordability_ranking_bar_respects_top_n():
+    fig = affordability_ranking_bar(_chart_df(), top_n=2)
+    total_bars = sum(len(trace.y) for trace in fig.data)
+    assert total_bars == 2
+
+
+def test_affordability_ranking_bar_sorted_ascending_for_display():
+    fig = affordability_ranking_bar(_chart_df(), top_n=3)
+    # bars rendered bottom-to-top: last entry is the highest value
+    values = list(fig.data[0].x)
+    assert values == sorted(values)
 
 
 def test_chart_helpers_validate_required_columns():

@@ -1,2 +1,39 @@
+[project]
+name = "cost-of-living-dashboard"
+version = "1.0.0"
+description = "Medallion data pipeline and Streamlit dashboard comparing developer salaries and cost of living across 120+ countries."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2.3,<3.0",
+    "plotly>=5.22.0,<6.0",
+    "streamlit>=1.37.1,<2.0",
+    "requests>=2.31.0,<3.0",
+    "lxml>=5.0.0,<6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.2,<9.0",
+    "ruff>=0.6.1,<1.0",
+]
+
+[project.scripts]
+pipeline = "src.pipeline:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
