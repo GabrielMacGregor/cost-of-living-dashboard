@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from src import config
-from src.charts import affordability_scatter, salary_by_country_bar, world_cost_map
+from src.charts import affordability_ranking_bar, affordability_scatter, salary_by_country_bar, world_cost_map
 from src.quality import load_pipeline_summary
 
 st.set_page_config(page_title="Cost of Living vs Developer Salaries", layout="wide")
@@ -178,7 +178,7 @@ elif page == "Salaries":
 
 elif page == "Affordability":
     st.subheader("Affordability")
-    st.metric("Average Affordability Index", f"{df['affordability_index'].mean():.2f}")
+    st.plotly_chart(affordability_ranking_bar(df, top_n=top_n), use_container_width=True)
     st.plotly_chart(affordability_scatter(df), use_container_width=True)
 
 else:
