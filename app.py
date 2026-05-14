@@ -43,7 +43,11 @@ _CSS = """
 
 /* ── Layout ─────────────────────────────────────── */
 .main .block-container { padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1280px; }
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    border-bottom: 0 !important;
+}
 
 /* ── Hero ────────────────────────────────────────── */
 .hero {
