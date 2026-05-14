@@ -213,7 +213,7 @@ div[data-testid="stSlider"] label, div[data-testid="stMultiSelect"] label {
 
 
 def _inject() -> None:
-    st.markdown(_FONTS + _CSS, unsafe_allow_html=True)
+    st.html(_FONTS + _CSS)
 
 
 def _hero(badge: str, title_html: str, subtitle: str) -> None:
