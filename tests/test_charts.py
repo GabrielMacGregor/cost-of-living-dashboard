@@ -27,7 +27,7 @@ def _chart_df() -> pd.DataFrame:
 def test_world_cost_map_uses_iso3_locations():
     fig = world_cost_map(_chart_df())
     assert fig.data[0].locations.tolist() == ["BRA", "DEU", "CAN"]
-    assert fig.layout.title.text == "Global Cost of Living Index"
+    assert fig.layout.title.text == "Cost of Living Index by Country"
 
 
 def test_salary_bar_is_horizontal():
@@ -44,8 +44,8 @@ def test_salary_bar_sorts_ascending_for_display():
 
 def test_affordability_scatter_uses_cost_and_salary_axes():
     fig = affordability_scatter(_chart_df())
-    assert fig.layout.xaxis.title.text == "cost_of_living_index"
-    assert fig.layout.yaxis.title.text == "median_salary_usd"
+    assert fig.layout.xaxis.title.text == "Cost of Living Index"
+    assert fig.layout.yaxis.title.text == "Median Salary (USD)"
 
 
 def test_affordability_ranking_bar_is_horizontal():

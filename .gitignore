@@ -32,6 +32,6 @@ pytest-cache-files-*/
 .DS_Store
 .vscode/
 
-# Streamlit
-.streamlit/
+# Streamlit — ignore secrets but track config
+.streamlit/secrets.toml
 
