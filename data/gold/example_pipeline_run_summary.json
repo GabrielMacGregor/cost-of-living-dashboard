@@ -1,0 +1,38 @@
+{
+  "year": 2024,
+  "run_at": "2024-09-03T12:00:00+00:00",
+  "sources": {
+    "numbeo_cost_of_living": {
+      "rows": 121,
+      "url": "https://www.numbeo.com/cost-of-living/rankings_by_country.jsp"
+    },
+    "stackoverflow_survey": {
+      "rows": 65437,
+      "url": "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2024/2024-09-03/stackoverflow_survey_single_response.csv"
+    },
+    "worldbank_countries": {
+      "rows": 296,
+      "url": "https://api.worldbank.org/v2/country?format=json&per_page=300"
+    }
+  },
+  "silver": {
+    "cost_of_living": {
+      "rows_in": 121,
+      "rows_out": 115,
+      "dropped": 6,
+      "dropped_countries": ["Kosovo", "Puerto Rico", "Bermuda", "Cayman Islands", "Macao", "Andorra"]
+    },
+    "developer_salaries": {
+      "rows_in": 65437,
+      "unknown_currencies": 312,
+      "outliers_removed": 48,
+      "countries": 82
+    }
+  },
+  "gold": {
+    "countries": 30,
+    "dropped_no_match": [],
+    "match_rate_pct": 100.0
+  },
+  "output_path": "data/gold/example_country_affordability.csv"
+}
