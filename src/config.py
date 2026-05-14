@@ -7,6 +7,7 @@ GOLD_DIR = Path("data/gold")
 GOLD_FILE = GOLD_DIR / "country_affordability.csv"
 EXAMPLE_GOLD_FILE = GOLD_DIR / "example_country_affordability.csv"
 PIPELINE_SUMMARY_FILE = GOLD_DIR / "pipeline_run_summary.json"
+EXAMPLE_PIPELINE_SUMMARY_FILE = GOLD_DIR / "example_pipeline_run_summary.json"
 
 # Pipeline defaults
 DEFAULT_YEAR: int = 2024

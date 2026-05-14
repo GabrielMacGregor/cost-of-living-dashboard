@@ -443,7 +443,9 @@ df_raw = _load_data()
 if df_raw is None:
     st.stop()
 
-_summary = load_pipeline_summary(config.PIPELINE_SUMMARY_FILE)
+_summary = load_pipeline_summary(config.PIPELINE_SUMMARY_FILE) or load_pipeline_summary(
+    config.EXAMPLE_PIPELINE_SUMMARY_FILE
+)
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 
@@ -460,7 +462,7 @@ with st.sidebar:
     )
     st.markdown('<span class="nav-label">Navigate</span>', unsafe_allow_html=True)
     page = st.radio(
-        "page",
+        "",
         ["Overview", "Salaries", "Affordability", "Insights", "Data Quality"],
         label_visibility="collapsed",
     )
