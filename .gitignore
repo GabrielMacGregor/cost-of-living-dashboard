@@ -25,9 +25,13 @@ data/raw/*.xlsx
 .pytest_tmp/
 pytest-cache-files-*/
 
+# Build artifacts
+*.egg-info/
+
 # OS/editor
 .DS_Store
 .vscode/
 
 # Streamlit
 .streamlit/
+

@@ -28,11 +28,14 @@ def salary_by_country_bar(df: pd.DataFrame):
     """Horizontal bar chart of top countries by median developer salary."""
     _require_columns(df, {"country", "median_salary_usd"}, "salary_by_country_bar")
     sorted_df = df.sort_values("median_salary_usd", ascending=False).head(TOP_N_SALARIES)
+    sorted_df = sorted_df.sort_values("median_salary_usd", ascending=True)
     return px.bar(
         sorted_df,
-        x="country",
-        y="median_salary_usd",
-        title=f"Top {TOP_N_SALARIES} Median Developer Salaries",
+        x="median_salary_usd",
+        y="country",
+        orientation="h",
+        title=f"Top {TOP_N_SALARIES} Median Developer Salaries (USD)",
+        labels={"median_salary_usd": "Median Salary (USD)", "country": ""},
     )
 
 
