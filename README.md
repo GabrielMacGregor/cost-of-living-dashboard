@@ -5,10 +5,7 @@
 
 **[Live Demo →](https://cost-of-living-dashboard-e2mvrkamdujmsavrxvoihk.streamlit.app/)**
 
-![Dashboard screenshot](docs/screenshot.png)
-<!-- Add a screenshot after first deploy: grab a PNG of the dashboard and save it to docs/screenshot.png -->
-
-A data product that compares developer salaries and cost of living across 120+ countries to surface affordability insights. Built with a fully automated medallion pipeline (bronze → silver → gold) and deployed as an interactive Streamlit dashboard.
+A data product that compares developer salaries and cost of living across 120+ countries to surface affordability insights. Built with a fully automated medallion pipeline (bronze → silver → gold) and deployed as an interactive Streamlit dashboard with a dark-theme UI.
 
 ## Project Goal
 
@@ -104,11 +101,11 @@ The pipeline writes:
 
 ## Dashboard Pages
 
-- **Overview**: world map with cost-of-living signal
-- **Salaries**: top 20 median developer salaries by country
-- **Affordability**: scatter plot of salary vs cost of living, colored by region
-- **Insights**: data-backed written conclusions
-- **Data Quality**: latest pipeline run metrics, source row counts, and dropped-match details
+- **Overview**: world choropleth map + KPI cards + top/bottom country rankings table
+- **Salaries**: horizontal bar chart of median developer salaries by country (top 20)
+- **Affordability**: ranking bar chart + scatter plot of salary vs cost of living by region
+- **Insights**: four data-backed insight cards derived from the current filtered dataset
+- **Data Quality**: pipeline run metrics, source row counts, and dropped-country details — uses bundled example data when the pipeline has not been run
 
 ## Affordability Index
 
@@ -151,8 +148,9 @@ Each full pipeline run creates `data/gold/pipeline_run_summary.json` with:
 - countries dropped because no cross-source match was available;
 - gold-layer match rate.
 
-The dashboard reads this file in the **Data Quality** page when available. This makes the ETL
-output auditable without opening intermediate CSV files manually.
+The dashboard reads this file in the **Data Quality** page when available. When no pipeline run
+exists, the page falls back to a bundled example report so the page always shows meaningful
+content. This makes the ETL output auditable without opening intermediate CSV files manually.
 
 ## Docker
 
