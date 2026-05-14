@@ -444,7 +444,7 @@ if df_raw is None:
     st.stop()
 
 _summary = load_pipeline_summary(config.PIPELINE_SUMMARY_FILE) or load_pipeline_summary(
-    config.EXAMPLE_PIPELINE_SUMMARY_FILE
+    config.GOLD_DIR / "example_pipeline_run_summary.json"
 )
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
