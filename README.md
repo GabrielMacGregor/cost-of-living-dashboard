@@ -3,7 +3,7 @@
 [![CI](https://github.com/GabrielMacGregor/cost-of-living-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielMacGregor/cost-of-living-dashboard/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 
-**[Live Demo →](https://your-app.streamlit.app)** ← _replace after Streamlit Cloud deploy_
+**[Live Demo →](https://cost-of-living-dashboard-e2mvrkamdujmsavrxvoihk.streamlit.app/)**
 
 ![Dashboard screenshot](docs/screenshot.png)
 <!-- Add a screenshot after first deploy: grab a PNG of the dashboard and save it to docs/screenshot.png -->
@@ -183,4 +183,4 @@ Deploy for free with [Streamlit Cloud](https://streamlit.io/cloud):
 4. Set main file path to `app.py`.
 5. Deploy and paste the public URL here.
 
-**Live demo**: _add URL after deployment_
+**Live demo**: https://cost-of-living-dashboard-e2mvrkamdujmsavrxvoihk.streamlit.app/
