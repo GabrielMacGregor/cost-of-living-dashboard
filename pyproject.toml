@@ -9,7 +9,7 @@ dependencies = [
     "plotly>=5.22.0,<6.0",
     "streamlit>=1.37.1,<2.0",
     "requests>=2.31.0,<3.0",
-    "lxml>=5.0.0,<6.0",
+    "lxml>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +23,7 @@ pipeline = "src.pipeline:main"
 
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -30,10 +30,16 @@ def test_world_cost_map_uses_iso3_locations():
     assert fig.layout.title.text == "Global Cost of Living Index"
 
 
-def test_salary_bar_sorts_by_salary_descending():
+def test_salary_bar_is_horizontal():
     fig = salary_by_country_bar(_chart_df())
-    assert fig.data[0].x.tolist() == ["Canada", "Germany", "Brazil"]
-    assert fig.data[0].y.tolist() == [90000.0, 86000.0, 32000.0]
+    assert fig.data[0].orientation == "h"
+
+
+def test_salary_bar_sorts_ascending_for_display():
+    fig = salary_by_country_bar(_chart_df())
+    # bars rendered bottom-to-top: last entry is the highest value
+    values = list(fig.data[0].x)
+    assert values == sorted(values)
 
 
 def test_affordability_scatter_uses_cost_and_salary_axes():

@@ -110,7 +110,7 @@ def run_pipeline(
     logger.info("=== Pipeline complete: %d countries in gold layer ===", len(gold_df))
 
 
-if __name__ == "__main__":
+def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     args = _parse_args()
     run_pipeline(
@@ -118,3 +118,7 @@ if __name__ == "__main__":
         output_dir=args.output,
         salary_outlier_threshold=args.salary_outlier_threshold,
     )
+
+
+if __name__ == "__main__":
+    main()
