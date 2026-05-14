@@ -4,8 +4,20 @@ import plotly.express as px
 TOP_N_SALARIES = 20
 TOP_N_AFFORDABILITY = 20
 
-_TEMPLATE = "plotly_white"
-_PRIMARY = "#0052CC"
+_COLORWAY = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f43f5e", "#a3e635"]
+_BG = "#111827"
+_FONT = dict(color="#e8edf5", family="DM Sans, sans-serif", size=12)
+_GRID = "rgba(255,255,255,0.06)"
+
+
+def _layout(**kwargs) -> dict:
+    return dict(
+        paper_bgcolor=_BG,
+        plot_bgcolor=_BG,
+        font=_FONT,
+        colorway=_COLORWAY,
+        **kwargs,
+    )
 
 
 def _require_columns(df: pd.DataFrame, required: set[str], fn_name: str) -> None:
@@ -25,12 +37,20 @@ def world_cost_map(df: pd.DataFrame):
             hover_name="country",
             hover_data={"iso3": False, "cost_of_living_index": ":.1f"},
             title="Cost of Living Index by Country",
-            color_continuous_scale="Blues",
-            template=_TEMPLATE,
+            color_continuous_scale=[[0, "#1a2235"], [0.5, "#3b82f6"], [1, "#10b981"]],
         )
         .update_layout(
-            margin={"r": 0, "t": 48, "l": 0, "b": 0},
-            coloraxis_colorbar={"title": "Index"},
+            **_layout(margin={"r": 0, "t": 48, "l": 0, "b": 0}),
+            coloraxis_colorbar={"title": "Index", "tickfont": {"color": "#6b7a96"}},
+            geo=dict(
+                bgcolor=_BG,
+                lakecolor=_BG,
+                landcolor="#1a2235",
+                showland=True,
+                showlakes=False,
+                showcountries=True,
+                countrycolor="#1e293b",
+            ),
         )
     )
 
@@ -48,14 +68,15 @@ def salary_by_country_bar(df: pd.DataFrame):
             orientation="h",
             title=f"Top {TOP_N_SALARIES} Countries · Median Developer Salary",
             labels={"median_salary_usd": "Median Salary (USD)", "country": ""},
-            template=_TEMPLATE,
-            color_discrete_sequence=[_PRIMARY],
+            color_discrete_sequence=["#3b82f6"],
         )
         .update_traces(hovertemplate="<b>%{y}</b><br>$%{x:,.0f}<extra></extra>")
         .update_layout(
-            xaxis_tickprefix="$",
-            xaxis_tickformat=",",
-            margin={"t": 56},
+            **_layout(
+                xaxis=dict(gridcolor=_GRID, zerolinecolor=_GRID, tickprefix="$", tickformat=","),
+                yaxis=dict(gridcolor="rgba(0,0,0,0)"),
+                margin={"t": 56, "r": 20, "b": 40, "l": 20},
+            )
         )
     )
 
@@ -79,7 +100,7 @@ def affordability_scatter(df: pd.DataFrame):
                 "cost_of_living_index": "Cost of Living Index",
                 "median_salary_usd": "Median Salary (USD)",
             },
-            template=_TEMPLATE,
+            color_discrete_sequence=_COLORWAY,
         )
         .update_traces(
             marker_size=9,
@@ -90,10 +111,13 @@ def affordability_scatter(df: pd.DataFrame):
             ),
         )
         .update_layout(
-            yaxis_tickprefix="$",
-            yaxis_tickformat=",",
-            margin={"t": 56},
-            legend_title="Region",
+            **_layout(
+                xaxis=dict(gridcolor=_GRID, zerolinecolor=_GRID),
+                yaxis=dict(gridcolor=_GRID, zerolinecolor=_GRID, tickprefix="$", tickformat=","),
+                margin={"t": 56, "r": 20, "b": 40, "l": 20},
+                legend_title="Region",
+                legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor=_GRID),
+            )
         )
     )
 
@@ -116,11 +140,16 @@ def affordability_ranking_bar(df: pd.DataFrame, top_n: int = TOP_N_AFFORDABILITY
             orientation="h",
             title=f"Top {top_n} Countries by Affordability Index",
             labels={"affordability_index": "Affordability Index (salary ÷ cost)", "country": ""},
-            template=_TEMPLATE,
+            color_discrete_sequence=_COLORWAY,
         )
         .update_traces(hovertemplate="<b>%{y}</b><br>Index: %{x:.0f}<extra></extra>")
         .update_layout(
-            margin={"t": 56},
-            legend_title="Region",
+            **_layout(
+                xaxis=dict(gridcolor=_GRID, zerolinecolor=_GRID),
+                yaxis=dict(gridcolor="rgba(0,0,0,0)"),
+                margin={"t": 56, "r": 20, "b": 40, "l": 20},
+                legend_title="Region",
+                legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor=_GRID),
+            )
         )
     )
