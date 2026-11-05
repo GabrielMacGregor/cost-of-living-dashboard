@@ -172,7 +172,10 @@ def test_process_salaries_handles_empty_country():
 
 def test_process_salaries_stats_keys():
     _, stats = process_developer_salaries(_so_df(), _RATES)
-    assert set(stats) == {"rows_in", "unknown_currencies", "outliers_removed", "countries"}
+    assert set(stats) == {
+        "rows_in", "unknown_currencies", "outliers_removed", "countries",
+        "unmatched_countries",
+    }
 
 
 def test_process_salaries_stats_counts():
@@ -203,3 +206,44 @@ def test_process_salaries_custom_outlier_threshold():
     out, stats = process_developer_salaries(df, _RATES, outlier_threshold=29_000)
     assert "Brazil" not in out["country"].values
     assert stats["outliers_removed"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# ISO3 resolution (names differ between Numbeo, Stack Overflow and the World Bank)
+# ---------------------------------------------------------------------------
+
+
+def _wb_alias_df():
+    return pd.DataFrame(
+        {
+            "name": ["Turkiye", "Libya", "Cote d'Ivoire", "Bosnia and Herzegovina", "Brazil"],
+            "iso3": ["TUR", "LBY", "CIV", "BIH", "BRA"],
+            "region": ["Europe & Central Asia", "MENA", "Sub-Saharan Africa",
+                       "Europe & Central Asia", "Latin America & Caribbean"],
+        }
+    )
+
+
+def test_cost_layer_resolves_aliases_case_and_accents():
+    raw = pd.DataFrame({
+        "Country": ["Turkey", "Ivory Coast", "Bosnia And Herzegovina", "Atlantis"],
+        "Cost of Living Index": [30.0, 35.0, 40.0, 50.0],
+    })
+    out = process_cost_of_living(raw, _wb_alias_df())
+    assert dict(zip(out["iso3"], out["country"])) == {
+        "TUR": "Turkiye", "CIV": "Cote d'Ivoire", "BIH": "Bosnia and Herzegovina",
+    }
+    assert out.attrs["dropped_countries"] == ["Atlantis"]
+
+
+def test_salaries_resolve_to_iso3_and_report_unmatched():
+    so = pd.DataFrame({
+        "country": ["Libyan Arab Jamahiriya", "Libyan Arab Jamahiriya", "Nomadic", "Brazil"],
+        "currency": ["USD United States dollar"] * 4,
+        "comp_total": [10000, 20000, 50000, 30000],
+    })
+    out, stats = process_developer_salaries(so, _RATES, wb_df=_wb_alias_df())
+    libya = out.loc[out["iso3"] == "LBY"].iloc[0]
+    assert libya["country"] == "Libya" and libya["median_salary_usd"] == 15000
+    assert set(out["iso3"]) == {"LBY", "BRA"}
+    assert stats["unmatched_countries"] == ["Nomadic"]

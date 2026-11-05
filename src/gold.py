@@ -34,7 +34,15 @@ def build_gold_layer(cost_df: pd.DataFrame, salary_df: pd.DataFrame) -> pd.DataF
     _validate_columns(cost_df, _REQUIRED_COST, "cost_of_living")
     _validate_columns(salary_df, _REQUIRED_SALARY, "developer_salaries")
 
-    merged = cost_df.merge(salary_df, on="country", how="inner")
+    if "iso3" in salary_df.columns:
+        # Preferred: join on ISO3, immune to naming differences between sources.
+        if salary_df["iso3"].duplicated().any() or cost_df["iso3"].duplicated().any():
+            raise ValueError("Gold join key iso3 must be unique in both inputs")
+        merged = cost_df.merge(
+            salary_df[["iso3", "median_salary_usd"]], on="iso3", how="inner"
+        )
+    else:
+        merged = cost_df.merge(salary_df, on="country", how="inner")
     logger.info("Gold: merged %d countries", len(merged))
 
     merged["affordability_index"] = affordability_index(

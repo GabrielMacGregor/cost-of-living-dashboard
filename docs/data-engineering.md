@@ -132,6 +132,19 @@ The tests use in-memory and temporary fixture data; they do not require access
 to the source APIs. For changes to Streamlit layout, verify the application
 separately.
 
+## Country matching (ISO3 join)
+
+Numbeo and Stack Overflow spell countries differently from each other and from the World
+Bank list (e.g. "Turkey" vs "Turkiye", "Bosnia And Herzegovina" vs "Bosnia and
+Herzegovina", "Libyan Arab Jamahiriya" vs "Libya"). Both sources are resolved against the
+World Bank list with a normalised key (case, accents and trailing "..." ignored) plus an
+alias table in `src/silver.py`, and the Gold layer joins on **ISO3**, not on the display
+name. Unmatched names are never guessed: they are listed in the run summary
+(`silver.cost_of_living.dropped_countries`, `silver.developer_salaries.unmatched_countries`,
+`gold.dropped_no_match`). On the 2024 run this raised Gold coverage from 121 to 136
+countries with no country lost; Taiwan, Guernsey and Jersey remain unmatched because the
+World Bank list used here has no entry for them.
+
 ## Dashboard data source
 
 The Streamlit app reads the real Gold CSV when it exists and otherwise falls back to the

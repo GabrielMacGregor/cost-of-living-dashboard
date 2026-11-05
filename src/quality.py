@@ -37,12 +37,14 @@ class PipelineRunSummary:
         countries: int,
         unknown_currencies: int,
         outliers_removed: int,
+        unmatched_countries: list[str] | None = None,
     ) -> None:
         self.silver["developer_salaries"] = {
             "rows_in": rows_in,
             "unknown_currencies": unknown_currencies,
             "outliers_removed": outliers_removed,
             "countries": countries,
+            "unmatched_countries": unmatched_countries or [],
         }
 
     def record_gold(self, countries: int, dropped_no_match: list[str]) -> None:
