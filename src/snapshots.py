@@ -90,6 +90,8 @@ def reconcile_gold_snapshot(
     """
     if not isinstance(year, int) or not 1900 <= year <= 2200:
         raise ValueError("survey year must be an integer between 1900 and 2200")
+    if gold.empty:
+        raise ValueError("Gold snapshot is empty; refusing to replace historical audit data")
     current = _canonical(gold)
     content = _csv_bytes(current)
     snapshot_id = hashlib.sha256(content).hexdigest()
