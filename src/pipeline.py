@@ -12,8 +12,8 @@ from src.ingest_numbeo import fetch_numbeo_rankings
 from src.ingest_stackoverflow import fetch_stackoverflow_salaries
 from src.ingest_worldbank import fetch_worldbank_countries
 from src.quality import PipelineRunSummary
-from src.snapshots import reconcile_gold_snapshot
 from src.silver import process_cost_of_living, process_developer_salaries, save_silver
+from src.snapshots import reconcile_gold_snapshot
 
 logger = logging.getLogger(__name__)
 
