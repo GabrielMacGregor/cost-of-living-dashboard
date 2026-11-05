@@ -44,7 +44,9 @@ On successful runs, this creates:
 ```text
 data/snapshots/
   2024/
-    latest.json                  # latest snapshot ID, UTC ingestion time, change counts
+    latest.json                  # pointer to the newest manifest (overwritten on change)
+    log/
+      <utc-timestamp>-<id12>.json # immutable manifest per change: id, time, deltas
     history/
       <sha256>.csv                # full snapshot, sorted by ISO3, fixed numeric precision
 data/gold/
@@ -64,6 +66,13 @@ commit personal, proprietary or unlicensed source data to the repository.
   before content hashing, to avoid changes caused solely by row order.
 - The content SHA-256 identifies the full snapshot. Running identical data twice
   produces the same ID and **does not** write a second history file or manifest.
+- Every change appends an immutable manifest to `log/`, so the order, timestamps and
+  deltas of past versions stay reconstructable; `latest.json` is only a pointer.
+- Snapshots live next to the Gold output directory (`<output>/../snapshots`), so
+  `--output` is respected.
+- A refresh that would remove more than 25% of the previously known countries is
+  refused (`max_removed_fraction`, configurable, `None` disables it) because it is
+  almost always an ingestion failure rather than a real change.
 - Rows are classified as **inserted**, **updated**, **unchanged** or **removed**
   relative to the preceding *snapshot for that same year*.
 - A removed country is **not physically deleted from the archived snapshot**;
@@ -100,6 +109,13 @@ unmatched countries, currency errors and other quality metrics. When
 The numbers above are **illustrative schema values**, not observed execution
 metrics. Refer to the generated summary for actual run results.
 
+Snapshots are written **after** the Gold CSV. A snapshot error (corrupted history,
+refused mass removal, invalid data) is logged and recorded in the summary as
+`"snapshot": {"status": "error", "error": "..."}`, and **does not block** the Gold
+output. The Gold CSV is therefore still published when the audit step refuses a
+suspicious refresh; inspect `pipeline_run_summary.json` after tracked runs. If you
+prefer to block publication instead, validate before `save_gold` and fail the run.
+
 When source fetching fails before Gold is computed, snapshot reconciliation
 does not run. The offline test suite includes initial/identical/reordered runs,
 added/modified/removed countries, corrupted archives, invalid keys/values,
@@ -114,4 +130,13 @@ ruff check .
 
 The tests use in-memory and temporary fixture data; they do not require access
 to the source APIs. For changes to Streamlit layout, verify the application
-separately. This work intentionally does **not** change `app.py` or its CSS.
+separately.
+
+## Dashboard data source
+
+The Streamlit app reads the real Gold CSV when it exists and otherwise falls back to the
+bundled 30-country example. The quality report always comes from the same source: the
+example run summary for example data, `pipeline_run_summary.json` for real data (and
+no report if that file is missing). A banner states when example data is shown. The
+affordability index (salary ÷ cost of living index) is a simplified comparison, not a
+full purchasing-power model.

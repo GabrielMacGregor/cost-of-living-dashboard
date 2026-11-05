@@ -182,21 +182,27 @@ def _kpis(df: pd.DataFrame) -> None:
     st.markdown(f'<div class="kpi-grid">{"".join(tiles)}</div>', unsafe_allow_html=True)
 
 
-def _load_data() -> pd.DataFrame | None:
+def _load_data() -> tuple[pd.DataFrame, bool] | None:
+    """Return (data, is_example). The quality report must come from the same source."""
+    is_example = False
     if config.GOLD_FILE.exists():
         path = config.GOLD_FILE
     elif config.EXAMPLE_GOLD_FILE.exists():
-        st.info(
-            "Showing bundled example data. "
-            "Run `python -m src.pipeline` to fetch and process real data."
-        )
+        is_example = True
         path = config.EXAMPLE_GOLD_FILE
     else:
         st.warning("No data found. Run `python -m src.pipeline` to build the gold layer.")
         return None
 
     try:
-        return pd.read_csv(path)
+        df = pd.read_csv(path)
+        if is_example:
+            st.info(
+                f"Showing bundled example data ({len(df)} countries), and the quality report "
+                "describes that example run. Run `python -m src.pipeline` to fetch and "
+                "process real data."
+            )
+        return df, is_example
     except Exception as exc:
         st.error(f"Failed to load data: {exc}")
         return None
@@ -237,22 +243,32 @@ def _rankings(df: pd.DataFrame, top_n: int) -> None:
             )
         return html
 
-    top_df = df.head(top_n)
-    bot_df = df.tail(top_n).sort_values("affordability_index")
-    bot_start = len(df) - top_n + 1
+    # Top and bottom lists never overlap: with few countries, shrink them to fit.
+    n = min(top_n, max(len(df) // 2, 1))
+    top_df = df.head(n)
+    bot_df = df.iloc[n:].tail(n).sort_values("affordability_index")
+    bot_start = len(df) - len(bot_df) + 1
     head = "<thead><tr><th>#</th><th>Country</th><th class='num'>Salary</th><th class='num'>Index</th></tr></thead>"
 
-    _section("Country rankings", "Affordability index = median salary ÷ cost of living index.")
+    note = "Affordability index = median salary ÷ cost of living index, a simplified comparison."
+    if n < top_n:
+        note += f" Showing {n} per list because the selection has {len(df)} countries."
+    bottom_card = (
+        f"""<div class="table-card">
+            <div class="table-head">▼ Least affordable <span>· bottom {len(bot_df)}</span></div>
+            <table>{head}<tbody>{_rows(bot_df, bot_start)}</tbody></table>
+          </div>"""
+        if len(bot_df)
+        else ""
+    )
+    _section("Country rankings", note)
     st.markdown(
         f"""<div class="rankings-grid">
           <div class="table-card">
-            <div class="table-head">▲ Most affordable <span>· top {top_n}</span></div>
+            <div class="table-head">▲ Most affordable <span>· top {n}</span></div>
             <table>{head}<tbody>{_rows(top_df, 1)}</tbody></table>
           </div>
-          <div class="table-card">
-            <div class="table-head">▼ Least affordable <span>· bottom {top_n}</span></div>
-            <table>{head}<tbody>{_rows(bot_df, bot_start)}</tbody></table>
-          </div>
+          {bottom_card}
         </div>""",
         unsafe_allow_html=True,
     )
@@ -269,12 +285,13 @@ def _insights(df: pd.DataFrame) -> None:
         f'(index {best["affordability_index"]:,.0f}), while '
         f'<strong>{escape(str(worst["country"]))}</strong> ranks lowest '
         f'({worst["affordability_index"]:,.0f}) — a cost-structure gap, not a salary gap.',
-        f'<strong>{escape(str(best_region).strip())}</strong> has the highest average purchasing power '
+        f'<strong>{escape(str(best_region).strip())}</strong> has the highest average affordability '
         f'in this selection — competitive salaries combined with lower living costs.',
         f'The average affordability index across <strong>{len(df)} countries</strong> is '
-        f'<strong>{avg_idx:,.0f}</strong>. Countries above it offer above-average real purchasing power.',
+        f'<strong>{avg_idx:,.0f}</strong>. Countries above it have above-average salary relative to living costs.',
         'High nominal salaries don\'t always win. Cost structure has a greater impact on '
-        '<strong>effective purchasing power</strong> than raw salary figures.',
+        '<strong>relative affordability</strong> than raw salary figures. The index is a simplified '
+        'comparison, not a full purchasing-power model.',
     ]
 
     cards_html = "".join(
@@ -347,12 +364,14 @@ def _data_quality(summary: dict | None) -> None:
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
 
 _inject()
-df_raw = _load_data()
-if df_raw is None:
+_loaded = _load_data()
+if _loaded is None:
     st.stop()
+df_raw, _is_example = _loaded
 
-_summary = load_pipeline_summary(config.PIPELINE_SUMMARY_FILE) or load_pipeline_summary(
-    config.GOLD_DIR / "example_pipeline_run_summary.json"
+# Same source as the data on screen: never pair real data with the example report.
+_summary = load_pipeline_summary(
+    config.EXAMPLE_PIPELINE_SUMMARY_FILE if _is_example else config.PIPELINE_SUMMARY_FILE
 )
 
 # ── Sidebar: navigation only ───────────────────────────────────────────────────
@@ -375,7 +394,7 @@ with st.sidebar:
         match_rate = _summary.get("gold", {}).get("match_rate_pct", "—")
         st.markdown(
             f"""<div class="data-meta">
-              <strong>Last pipeline run</strong><br/>{escape(run_at)}<br/>
+              <strong>{"Example pipeline run" if _is_example else "Last pipeline run"}</strong><br/>{escape(run_at)}<br/>
               {countries} countries · {match_rate}% match rate
             </div>""",
             unsafe_allow_html=True,
@@ -386,7 +405,7 @@ with st.sidebar:
 _HEADERS = {
     "Overview": (
         "Developer salary vs cost of living",
-        "Where developers get the most purchasing power for their salary.",
+        "Where a developer salary stretches furthest against the local cost of living.",
     ),
     "Salaries": (
         "Developer salaries by country",
@@ -394,11 +413,11 @@ _HEADERS = {
     ),
     "Affordability": (
         "Where does a salary go furthest?",
-        "High nominal salaries don't always win; the affordability index shows real purchasing power.",
+        "High nominal salaries don't always win; the affordability index compares salary against living costs.",
     ),
     "Insights": (
         "Key insights",
-        "Conclusions about purchasing power, regional trends and cost structure.",
+        "Conclusions about affordability, regional trends and cost structure.",
     ),
     "Data Quality": (
         "Data quality and sources",
