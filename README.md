@@ -22,6 +22,8 @@ All data is fetched automatically — no manual downloads needed.
 | [World Bank Open Data](https://data.worldbank.org/) | Country metadata: iso3, region | REST API (no key) |
 | [Open Exchange Rates](https://open.er-api.com/) | USD exchange rates for currency conversion | Free tier (no key) |
 
+**Periods:** cost of living is Numbeo's 2024 ranking and salaries come from the 2024 survey (self-reported, data under the Open Database License); exchange rates are fetched on the day the pipeline runs, so salary conversions mix 2024 salaries with current rates. Country medians have no minimum respondent count. Exchange rates are provided by [Exchange Rate API](https://www.exchangerate-api.com) (attribution required). The dashboard shows the same references and periods in its *Sources and method* panel.
+
 ## Architecture
 
 This project follows the **medallion architecture**:

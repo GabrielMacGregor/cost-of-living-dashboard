@@ -26,3 +26,14 @@ def test_rankings_never_repeat_countries_or_go_negative_with_few_results(app):
     names = re.findall(r"<td>([^<]+)</td><td class='num'>\$", html)
     assert ranks and min(ranks) >= 1
     assert len(names) == len(set(names))
+
+
+def test_sources_panel_and_data_periods_are_shown(app):
+    html = " ".join(m.value for m in app.markdown)
+    needles = (
+        "numbeo.com", "survey.stackoverflow.co/2024", "worldbank.org", "exchangerate-api.com",
+    )
+    for needle in needles:
+        assert needle in html
+    assert "Salaries and cost of living:" in html
+    assert "Exchange rates:" in html
