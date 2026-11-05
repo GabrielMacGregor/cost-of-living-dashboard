@@ -48,7 +48,7 @@ def test_insert_update_remove_and_preserve_history(tmp_path):
         "cost_of_living_index": [55.0], "median_salary_usd": [55000.0],
         "affordability_index": [1000.0],
     })], ignore_index=True)
-    second = reconcile_gold_snapshot(current, 2024, tmp_path)
+    second = reconcile_gold_snapshot(current, 2024, tmp_path, max_removed_fraction=None)
     assert (second["inserted"], second["updated"], second["unchanged"], second["removed"]) == (
         1, 1, 0, 1
     )
@@ -111,3 +111,34 @@ def test_empty_gold_fails_closed(tmp_path):
     with pytest.raises(ValueError, match="is empty"):
         reconcile_gold_snapshot(_gold().iloc[0:0].copy(), 2024, tmp_path)
     assert not (tmp_path / "2024" / "latest.json").exists()
+
+
+def test_every_change_appends_an_immutable_manifest(tmp_path):
+    reconcile_gold_snapshot(_gold(), 2024, tmp_path)
+    reconcile_gold_snapshot(_gold(), 2024, tmp_path)  # unchanged: no new entry
+    changed = _gold().assign(median_salary_usd=[31000.0, 84000.0])
+    reconcile_gold_snapshot(changed, 2024, tmp_path)
+    entries = sorted((tmp_path / "2024" / "log").glob("*.json"))
+    assert len(entries) == 2
+    first, second = (json.loads(e.read_text()) for e in entries)
+    assert first["previous_snapshot_id"] is None
+    assert second["previous_snapshot_id"] == first["snapshot_id"]
+    assert second["changes"]["updated"] == 1
+
+
+def test_mass_removal_is_refused_and_leaves_state_untouched(tmp_path):
+    reconcile_gold_snapshot(_gold(), 2024, tmp_path)
+    path = tmp_path / "2024" / "latest.json"
+    expected = path.read_bytes()
+    with pytest.raises(ValueError, match="likely ingestion failure"):
+        reconcile_gold_snapshot(_gold().iloc[[0]], 2024, tmp_path)
+    assert path.read_bytes() == expected
+    assert len(list((tmp_path / "2024" / "log").glob("*.json"))) == 1
+
+
+def test_mass_removal_guard_can_be_disabled(tmp_path):
+    reconcile_gold_snapshot(_gold(), 2024, tmp_path)
+    stats = reconcile_gold_snapshot(
+        _gold().iloc[[0]], 2024, tmp_path, max_removed_fraction=None
+    )
+    assert stats["removed"] == 1

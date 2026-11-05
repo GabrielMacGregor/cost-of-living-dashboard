@@ -107,19 +107,27 @@ def run_pipeline(
     logger.info("Step 6/6: Building gold layer")
     cost_countries_before = set(cost_silver["country"])
     gold_df = build_gold_layer(cost_silver, salary_silver)
-    # Optional audit history. Validate before writing Gold; only changed snapshots
-    # create a new content-addressed artifact. No change to the Streamlit CSV schema.
-    if track_snapshots:
-        snapshot_stats = reconcile_gold_snapshot(gold_df, year=year)
-        summary.record_snapshot(snapshot_stats)
-        logger.info(
-            "Gold snapshots: %s (new=%d changed=%d unchanged=%d removed=%d)",
-            snapshot_stats["status"], snapshot_stats["inserted"],
-            snapshot_stats["updated"], snapshot_stats["unchanged"],
-            snapshot_stats["removed"],
-        )
-
     gold_path = save_gold(gold_df, output_dir=output_dir)
+
+    # Optional audit history, written after Gold so a failed save never leaves an orphan
+    # snapshot, and kept next to the Gold directory so --output is respected. It is an
+    # add-on: a snapshot error is reported in the summary but never blocks the Gold output.
+    if track_snapshots:
+        try:
+            snapshot_stats = reconcile_gold_snapshot(
+                gold_df, year=year, snapshot_root=output_dir.parent / "snapshots"
+            )
+        except ValueError as exc:
+            logger.error("Gold snapshot skipped: %s", exc)
+            summary.record_snapshot({"status": "error", "error": str(exc)})
+        else:
+            summary.record_snapshot(snapshot_stats)
+            logger.info(
+                "Gold snapshots: %s (new=%d changed=%d unchanged=%d removed=%d)",
+                snapshot_stats["status"], snapshot_stats["inserted"],
+                snapshot_stats["updated"], snapshot_stats["unchanged"],
+                snapshot_stats["removed"],
+            )
 
     dropped_gold = sorted(cost_countries_before - set(gold_df["country"]))
     summary.record_gold(countries=len(gold_df), dropped_no_match=dropped_gold)

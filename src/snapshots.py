@@ -16,6 +16,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from src import config
+
+# A refresh that drops more than this share of previously known countries is almost
+# certainly an ingestion failure, not a real change. Refuse it instead of auditing it.
+DEFAULT_MAX_REMOVED_FRACTION = 0.25
+
 COLUMNS = (
     "iso3",
     "country",
@@ -80,13 +86,20 @@ def _row_map(df: pd.DataFrame) -> dict:
 
 
 def reconcile_gold_snapshot(
-    gold: pd.DataFrame, year: int, snapshot_root: Path = Path("data/snapshots")
+    gold: pd.DataFrame,
+    year: int,
+    snapshot_root: Path = config.SNAPSHOT_DIR,
+    max_removed_fraction: float | None = DEFAULT_MAX_REMOVED_FRACTION,
 ) -> dict:
     """Persist a full Gold snapshot only if content changed, reporting row-level deltas.
 
     The original Gold CSV contract stays unchanged. Files are stored per survey
     year and addressed by content hash; repeated identical runs do not write.
     Does not delete rows or historical snapshots when a country disappears.
+    Every change also appends an immutable manifest under ``log/`` so the order,
+    timestamps and deltas of past versions stay reconstructable (``latest.json`` is
+    only a pointer to the newest one). A refresh that removes more than
+    ``max_removed_fraction`` of the previous countries is refused; pass None to disable.
     """
     if not isinstance(year, int) or not 1900 <= year <= 2200:
         raise ValueError("survey year must be an integer between 1900 and 2200")
@@ -123,6 +136,16 @@ def reconcile_gold_snapshot(
         "unchanged": sum(before[k] == after[k] for k in common),
         "removed": len(before_keys - after_keys),
     }
+    if (
+        max_removed_fraction is not None
+        and before_keys
+        and changes["removed"] / len(before_keys) > max_removed_fraction
+    ):
+        raise ValueError(
+            f"Gold snapshot would remove {changes['removed']} of {len(before_keys)} "
+            f"previous countries (limit {max_removed_fraction:.0%}); refusing as a likely "
+            "ingestion failure"
+        )
     if previous_id == snapshot_id:
         return {"status": "unchanged", "snapshot_id": snapshot_id,
                 "previous_snapshot_id": previous_id, **changes}
@@ -133,15 +156,19 @@ def reconcile_gold_snapshot(
             raise ValueError("Existing snapshot history checksum mismatch")
     else:
         _atomic_write(history_path, content)
+    now = datetime.now(timezone.utc)
     metadata = {
         "schema_version": 1,
         "survey_year": year,
-        "ingested_at_utc": datetime.now(timezone.utc).isoformat(),
+        "ingested_at_utc": now.isoformat(),
         "snapshot_id": snapshot_id,
         "previous_snapshot_id": previous_id,
         "changes": changes,
         "note": "Full-source snapshot comparison; not incremental source extraction.",
     }
-    _atomic_write(manifest_path, (json.dumps(metadata, indent=2) + "\n").encode("utf-8"))
+    payload = (json.dumps(metadata, indent=2) + "\n").encode("utf-8")
+    log_name = f"{now.strftime('%Y%m%dT%H%M%S%fZ')}-{snapshot_id[:12]}.json"
+    _atomic_write(root / "log" / log_name, payload)
+    _atomic_write(manifest_path, payload)
     return {"status": "initial" if previous_id is None else "updated",
             "snapshot_id": snapshot_id, "previous_snapshot_id": previous_id, **changes}
