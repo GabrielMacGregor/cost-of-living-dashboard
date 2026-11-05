@@ -123,6 +123,10 @@ section[data-testid="stSidebar"] { border-right: 1px solid var(--border) !import
 .brand-sub  { font-size: 0.75rem; color: var(--muted); margin-bottom: 24px; }
 .data-meta  { font-size: 0.75rem; color: var(--muted); line-height: 1.6; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--r); margin-top: 24px; }
 .data-meta strong { color: var(--text-2); font-weight: 500; }
+a { color: var(--series-1); }
+.src-table td { vertical-align: top; }
+.src-table td.period { white-space: nowrap; color: var(--text-2); }
+.src-note { font-size: 0.875rem; color: var(--text-2); line-height: 1.6; margin: 12px 0 0; }
 
 /* ── Radio → nav items ───────────────────────────── */
 div[data-testid="stRadio"] > div:first-child { display: none !important; }
@@ -361,6 +365,62 @@ def _data_quality(summary: dict | None) -> None:
     )
 
 
+_SOURCES = [
+    (
+        "Cost of living index",
+        '<a href="https://www.numbeo.com/cost-of-living/rankings_by_country.jsp?title=2024" '
+        'target="_blank" rel="noopener noreferrer">Numbeo, Cost of Living Index by Country</a>'
+        " (scale relative to New York City = 100)",
+        "2024 ranking",
+    ),
+    (
+        "Developer salaries",
+        '<a href="https://survey.stackoverflow.co/2024/" target="_blank" '
+        'rel="noopener noreferrer">Stack Overflow Developer Survey 2024</a>, annual '
+        "compensation as self-reported, via the "
+        '<a href="https://github.com/rfordatascience/tidytuesday/tree/main/data/2024/2024-09-03" '
+        'target="_blank" rel="noopener noreferrer">TidyTuesday mirror</a> '
+        "(data under the Open Database License)",
+        "2024 survey",
+    ),
+    (
+        "Country names, ISO3 codes, regions",
+        '<a href="https://data.worldbank.org/country" target="_blank" '
+        'rel="noopener noreferrer">World Bank Country API</a>',
+        "Current list",
+    ),
+    (
+        "Exchange rates to USD",
+        '<a href="https://www.exchangerate-api.com" target="_blank" '
+        'rel="noopener noreferrer">Rates by Exchange Rate API</a> (open access)',
+        "{rates_period}",
+    ),
+]
+
+
+def _sources(summary: dict | None) -> None:
+    """Where every number comes from, its period, and how the index is built."""
+    rates_period = f"Fetched {summary['run_at'][:10]}" if summary and summary.get("run_at") else "Fetched at run time"
+    rows = "".join(
+        f"<tr><td>{escape(topic)}</td><td>{desc}</td>"
+        f"<td class='period'>{escape(period.format(rates_period=rates_period))}</td></tr>"
+        for topic, desc, period in _SOURCES
+    )
+    with st.expander("Sources and method"):
+        st.markdown(
+            f"""<div class="table-card"><table class="src-table">
+              <thead><tr><th>Data</th><th>Source</th><th>Period</th></tr></thead>
+              <tbody>{rows}</tbody></table></div>
+            <p class="src-note">Affordability index = median developer salary in USD ÷ cost of
+            living index. Medians come from self-reported survey answers, with no minimum number
+            of respondents per country, and local-currency salaries from the 2024 survey are
+            converted at the exchange rates of the run date, so currencies that moved since 2024
+            can distort the comparison. It is a simplified comparison, not a full
+            purchasing-power model.</p>""",
+            unsafe_allow_html=True,
+        )
+
+
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
 
 _inject()
@@ -389,12 +449,15 @@ with st.sidebar:
     )
 
     if _summary:
-        run_at = _summary.get("run_at", "")[:16]
+        run_at = _summary.get("run_at", "")[:10]
+        data_year = _summary.get("year", "—")
         countries = _summary.get("gold", {}).get("countries", "—")
         match_rate = _summary.get("gold", {}).get("match_rate_pct", "—")
         st.markdown(
             f"""<div class="data-meta">
               <strong>{"Example pipeline run" if _is_example else "Last pipeline run"}</strong><br/>{escape(run_at)}<br/>
+              Salaries and cost of living: {data_year}<br/>
+              Exchange rates: {escape(run_at)}<br/>
               {countries} countries · {match_rate}% match rate
             </div>""",
             unsafe_allow_html=True,
@@ -493,3 +556,5 @@ elif page == "Insights":
 
 else:  # Data Quality
     _data_quality(_summary)
+
+_sources(_summary)
