@@ -113,3 +113,15 @@ def test_load_pipeline_summary_reads_json():
     loaded = load_pipeline_summary(out)
     assert loaded is not None
     assert loaded["year"] == 2024
+
+
+def test_snapshot_metrics_are_optional_and_serializable():
+    summary = PipelineRunSummary(year=2024)
+    assert "snapshot" not in summary.to_dict()
+    stats = {
+        "status": "updated", "inserted": 1, "updated": 2, "unchanged": 3,
+        "removed": 1, "snapshot_id": "example",
+    }
+    summary.record_snapshot(stats)
+    assert summary.to_dict()["snapshot"] == stats
+    assert "snapshot" not in PipelineRunSummary(year=2024).to_dict()

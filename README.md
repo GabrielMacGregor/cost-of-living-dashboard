@@ -99,6 +99,28 @@ The pipeline writes:
 - `data/gold/country_affordability.csv`: final dashboard dataset
 - `data/gold/pipeline_run_summary.json`: quality and lineage report
 
+## Optional Gold Snapshot Reconciliation
+
+The pipeline can also **compare complete Gold snapshots across runs** without
+changing the CSV consumed by Streamlit:
+
+```bash
+python -m src.pipeline --year 2024 --track-snapshots
+```
+
+This opt-in mode validates country keys and numeric values, archives full
+snapshots by content hash, and reports **inserted / updated / unchanged / removed**
+countries. Identical reruns do not duplicate snapshot history. Files remain
+local under `data/snapshots/` and are ignored by Git.
+
+**Important:** this is an audit of full-source snapshots, **not incremental
+API ingestion or a time series**. The Stack Overflow input remains the 2024
+survey and currency exchange rates are fetched at run time; comparisons
+across runs must not be interpreted as historical purchasing-power changes.
+
+For the Mermaid architecture diagram, failure behavior, data lineage and
+reconciliation details, see [Data Engineering Notes](docs/data-engineering.md).
+
 ## Dashboard Pages
 
 - **Overview**: world choropleth map + KPI cards + top/bottom country rankings table
