@@ -31,6 +31,8 @@ include = ["src*"]
 
 [tool.ruff]
 line-length = 100
+# Vendored design skill (third-party scripts); not project code.
+extend-exclude = [".claude"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

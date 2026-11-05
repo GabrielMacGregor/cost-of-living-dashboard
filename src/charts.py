@@ -25,10 +25,19 @@ DEEMPHASIS = "#5b5a56"  # context marks when one series is the story
 NO_DATA = "#262624"
 
 # Sequential single-hue ramp (blue 700 -> 300): lowest value recedes into the surface.
-_SEQUENTIAL = ["#0d366b", "#104281", "#184f95", "#1c5cab", "#256abf", "#2a78d6", "#3987e5", "#6da7ec"]
+_SEQUENTIAL = [
+    "#0d366b", "#104281", "#184f95", "#1c5cab", "#256abf", "#2a78d6", "#3987e5", "#6da7ec",
+]
 
-_FONT = dict(color=TEXT_SECONDARY, family="system-ui, -apple-system, 'Segoe UI', sans-serif", size=12)
+_FONT = dict(
+    color=TEXT_SECONDARY,
+    family="system-ui, -apple-system, 'Segoe UI', sans-serif",
+    size=12,
+)
 _HOVER = dict(bgcolor="#262624", bordercolor=AXIS, font=dict(color=TEXT_PRIMARY, size=13))
+
+
+_TICK_LABEL = dict(color=TEXT_SECONDARY, size=12)
 
 
 def _axis(**kwargs) -> dict:
@@ -122,7 +131,7 @@ def salary_by_country_bar(df: pd.DataFrame, top_n: int = TOP_N_SALARIES):
         .update_layout(
             **_layout(
                 xaxis=_axis(tickprefix="$", tickformat=","),
-                yaxis=_axis(gridcolor="rgba(0,0,0,0)", tickfont=dict(color=TEXT_SECONDARY, size=12)),
+                yaxis=_axis(gridcolor="rgba(0,0,0,0)", tickfont=_TICK_LABEL),
                 margin={"t": 8, "r": 16, "b": 40, "l": 8},
                 bargap=0.35,
                 showlegend=False,
@@ -220,7 +229,7 @@ def affordability_ranking_bar(df: pd.DataFrame, top_n: int = TOP_N_AFFORDABILITY
         .update_layout(
             **_layout(
                 xaxis=_axis(),
-                yaxis=_axis(gridcolor="rgba(0,0,0,0)", tickfont=dict(color=TEXT_SECONDARY, size=12)),
+                yaxis=_axis(gridcolor="rgba(0,0,0,0)", tickfont=_TICK_LABEL),
                 margin={"t": 8, "r": 16, "b": 48, "l": 8},
                 bargap=0.35,
                 showlegend=False,
