@@ -1,3 +1,5 @@
+from html import escape
+
 import pandas as pd
 import streamlit as st
 
@@ -17,247 +19,167 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-_FONTS = (
-    "<link href='https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800"
-    "&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap' rel='stylesheet'/>"
-)
-
+# Visual rules: .claude/skills/dashboard-design (dark surface, one system sans,
+# 4/8px spacing scale, hairline borders, colour only where it carries meaning).
 _CSS = """
 <style>
 :root {
-    --bg:       #0b0f1a;
-    --surface:  #111827;
-    --surface2: #1a2235;
-    --border:   rgba(255,255,255,0.07);
-    --text:     #e8edf5;
-    --muted:    #6b7a96;
-    --accent:   #3b82f6;
-    --green:    #10b981;
-    --amber:    #f59e0b;
-    --red:      #ef4444;
-    --violet:   #8b5cf6;
-    --fd: 'Syne', sans-serif;
-    --fm: 'DM Mono', monospace;
-    --r: 12px;
+    --bg:        #0d0d0d;   /* page plane */
+    --surface:   #1a1a19;   /* cards and chart surface */
+    --border:    rgba(255,255,255,0.10);
+    --grid:      #2c2c2a;
+    --text:      #f0efec;
+    --text-2:    #c3c2b7;
+    --muted:     #898781;
+    --series-1:  #3987e5;
+    --good:      #0ca30c;
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --r: 8px;
 }
+
+.stMarkdown, .stMarkdown p, .kpi-card, .table-card, .insight-card, .page-head { font-family: var(--font); }
 
 /* ── Layout ─────────────────────────────────────── */
-.main .block-container { padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1280px; }
+.main .block-container { padding: 24px 32px 48px; max-width: 1280px; }
 #MainMenu, footer { visibility: hidden; }
-header[data-testid="stHeader"] {
-    background: transparent !important;
-    border-bottom: 0 !important;
+header[data-testid="stHeader"] { background: transparent !important; border-bottom: 0 !important; }
+:focus-visible { outline: 2px solid var(--series-1) !important; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (max-width: 767px) { .main .block-container { padding: 16px 16px 32px; } }
+
+/* ── Page header ─────────────────────────────────── */
+.page-head { margin: 0 0 16px; }
+.page-head h1 {
+    font-family: var(--font) !important; font-size: 1.75rem !important; font-weight: 600 !important;
+    color: var(--text) !important; line-height: 1.2 !important; letter-spacing: -0.01em !important;
+    margin: 0 0 4px !important; padding: 0 !important;
+}
+.page-head p { color: var(--text-2); font-size: 0.875rem; line-height: 1.5; margin: 0; max-width: 64ch; }
+
+/* ── Filters row ─────────────────────────────────── */
+div[data-testid="stSlider"] label p, div[data-testid="stMultiSelect"] label p {
+    font-size: 0.75rem !important; color: var(--text-2) !important;
 }
 
-/* ── Hero ────────────────────────────────────────── */
-.hero {
-    position: relative;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 2rem 2.25rem;
-    margin-bottom: 1.75rem;
-    overflow: hidden;
-}
-.hero::before {
-    content: ''; position: absolute; top: -80px; right: -80px;
-    width: 320px; height: 320px;
-    background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 65%);
-    pointer-events: none;
-}
-.hero::after {
-    content: ''; position: absolute; bottom: -50px; left: 35%;
-    width: 200px; height: 200px;
-    background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
-    pointer-events: none;
-}
-.hero-badge {
-    display: inline-block;
-    font-size: 0.68rem; font-family: var(--fm);
-    color: var(--accent);
-    background: rgba(59,130,246,0.1);
-    border: 1px solid rgba(59,130,246,0.22);
-    border-radius: 20px;
-    padding: 0.22rem 0.75rem;
-    margin-bottom: 0.85rem;
-    text-transform: uppercase; letter-spacing: 0.07em;
-}
-.hero h1 {
-    font-family: var(--fd) !important;
-    font-size: 2rem !important; font-weight: 800 !important;
-    color: var(--text) !important;
-    line-height: 1.15 !important;
-    margin: 0 0 0.55rem 0 !important;
-    letter-spacing: -0.025em !important; padding: 0 !important;
-}
-.hero h1 .hl { color: var(--accent); }
-.hero p { color: var(--muted); font-size: 0.92rem; line-height: 1.65; max-width: 52ch; margin: 0; }
-
-/* ── KPI cards ───────────────────────────────────── */
-.kpi-grid { display: flex; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
-.kpi-card {
-    flex: 1; min-width: 140px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--r); padding: 1.2rem 1.35rem;
-    position: relative; overflow: hidden;
-    transition: border-color 0.2s, transform 0.2s;
-}
-.kpi-card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-2px); }
-.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-.c-blue::before  { background: linear-gradient(90deg, var(--accent), transparent); }
-.c-green::before { background: linear-gradient(90deg, var(--green),  transparent); }
-.c-amber::before { background: linear-gradient(90deg, var(--amber),  transparent); }
-.c-violet::before{ background: linear-gradient(90deg, var(--violet), transparent); }
-.kpi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
-.kpi-label  { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 500; }
-.kpi-icon   { width: 27px; height: 27px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 0.82rem; }
-.c-blue  .kpi-icon { background: rgba(59,130,246,0.12); }
-.c-green .kpi-icon { background: rgba(16,185,129,0.12); }
-.c-amber .kpi-icon { background: rgba(245,158,11,0.12); }
-.c-violet .kpi-icon{ background: rgba(139,92,246,0.12); }
-.kpi-value { font-family: var(--fd); font-size: 1.65rem; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 0.3rem; letter-spacing: -0.02em; }
-.kpi-sub   { font-size: 0.71rem; color: var(--muted); display: flex; align-items: center; gap: 0.35rem; }
-.tag { font-size: 0.62rem; padding: 0.08rem 0.42rem; border-radius: 4px; font-family: var(--fm); font-weight: 500; }
-.c-blue  .tag  { background: rgba(59,130,246,0.15); color: var(--accent); }
-.c-green .tag  { background: rgba(16,185,129,0.15); color: var(--green);  }
-.c-amber .tag  { background: rgba(245,158,11,0.15); color: var(--amber);  }
-.c-violet .tag { background: rgba(139,92,246,0.15); color: var(--violet); }
+/* ── KPI tiles ───────────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 8px 0 24px; }
+@media (max-width: 1279px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px)  { .kpi-grid { grid-template-columns: 1fr; } }
+.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 20px; min-height: 96px; }
+.kpi-label { font-size: 0.875rem; color: var(--text-2); margin-bottom: 8px; }
+.kpi-value { font-size: 1.75rem; font-weight: 600; color: var(--text); line-height: 1.15; margin-bottom: 4px; letter-spacing: -0.01em; }
+.kpi-sub   { font-size: 0.75rem; color: var(--muted); }
 
 /* ── Section header ──────────────────────────────── */
-.section-header { display: flex; align-items: center; margin: 1.75rem 0 0.9rem; }
-.section-title  { font-family: var(--fd); font-size: 0.97rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 0.55rem; }
-.section-title::before { content: ''; display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+.section-title { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 32px 0 4px; }
+.section-note  { font-size: 0.875rem; color: var(--muted); margin: 0 0 12px; }
 
-/* ── Rankings ────────────────────────────────────── */
-.rankings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+/* ── Charts sit on the chart surface ─────────────── */
+div[data-testid="stPlotlyChart"] {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px;
+}
+div[data-testid="stExpander"] { border: 1px solid var(--border) !important; border-radius: var(--r) !important; margin-top: 8px; }
+div[data-testid="stExpander"] summary p { font-size: 0.875rem; color: var(--text-2); }
+
+/* ── Tables ──────────────────────────────────────── */
+.rankings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 767px) { .rankings-grid { grid-template-columns: 1fr; } }
 .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
-.table-head { padding: 0.85rem 1.15rem; border-bottom: 1px solid var(--border); }
-.table-head-title { font-size: 0.78rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 0.45rem; }
-.badge-top { background: rgba(16,185,129,0.12); color: var(--green); padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.62rem; font-family: var(--fm); }
-.badge-bot { background: rgba(239,68,68,0.1);  color: var(--red);   padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.62rem; font-family: var(--fm); }
-.badge-ok  { background: rgba(16,185,129,0.12); color: var(--green); padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.62rem; font-family: var(--fm); }
+.table-head { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.875rem; font-weight: 600; color: var(--text); }
+.table-head span { font-weight: 400; color: var(--text-2); }
 table { width: 100%; border-collapse: collapse; }
-thead th { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 500; padding: 0.6rem 1.15rem; text-align: left; border-bottom: 1px solid var(--border); }
-tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.12s; }
+thead th { font-size: 0.75rem; font-weight: 500; color: var(--muted); padding: 8px 16px; text-align: left; border-bottom: 1px solid var(--grid); }
+tbody tr { border-bottom: 1px solid var(--grid); }
 tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: rgba(255,255,255,0.025); }
-tbody td { padding: 0.62rem 1.15rem; font-size: 0.79rem; }
-.rank-num    { font-family: var(--fm); color: var(--muted); font-size: 0.7rem; }
-.cname       { font-weight: 500; color: var(--text); }
-.salary-val  { font-family: var(--fm); font-size: 0.76rem; color: var(--green); }
-.source-name { font-family: var(--fm); color: var(--muted); font-size: 0.77rem; }
-.rows-val    { font-family: var(--fm); font-size: 0.76rem; color: var(--green); }
-.idx-cell  { display: flex; align-items: center; gap: 0.5rem; font-family: var(--fm); font-size: 0.74rem; color: var(--text); }
-.idx-track { width: 52px; height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
-.idx-fill  { height: 100%; border-radius: 2px; }
-.fill-hi   { background: var(--green); }
-.fill-lo   { background: var(--red);   }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+tbody td { padding: 8px 16px; font-size: 0.875rem; color: var(--text); }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.rank-num { color: var(--muted); font-variant-numeric: tabular-nums; width: 40px; }
+.idx-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-variant-numeric: tabular-nums; }
+.idx-track { width: 56px; height: 4px; background: var(--grid); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.idx-fill  { height: 100%; background: var(--series-1); }
+.status-ok { color: var(--good); font-size: 0.875rem; }
 
-/* ── Insight cards ───────────────────────────────── */
-.insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
-.insight-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--r); padding: 1.4rem 1.5rem 1.3rem;
-    position: relative; overflow: hidden;
-    transition: border-color 0.2s, transform 0.2s;
-}
-.insight-card:hover { border-color: rgba(59,130,246,0.25); transform: translateY(-2px); }
-.insight-card::after {
-    content: ''; position: absolute; bottom: -30px; right: -30px;
-    width: 100px; height: 100px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(59,130,246,0.07), transparent 70%);
-    pointer-events: none;
-}
-.insight-num  { font-family: var(--fd); font-size: 2.8rem; font-weight: 800; color: rgba(255,255,255,0.04); line-height: 1; position: absolute; top: 0.6rem; right: 1rem; }
-.insight-icon { font-size: 1.2rem; margin-bottom: 0.7rem; display: block; }
-.insight-text { font-size: 0.88rem; color: var(--text); line-height: 1.68; }
-.insight-text strong { color: var(--accent); font-weight: 600; }
-.hi-text { color: var(--green); font-weight: 600; }
-.lo-text { color: var(--red);   font-weight: 600; }
+/* ── Insights ────────────────────────────────────── */
+.insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+@media (max-width: 767px) { .insights-grid { grid-template-columns: 1fr; } }
+.insight-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px 24px; }
+.insight-text { font-size: 1rem; color: var(--text-2); line-height: 1.6; }
+.insight-text strong { color: var(--text); font-weight: 600; }
 
-/* ── Quality cards ───────────────────────────────── */
-.quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-.q-card  { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 1.2rem; text-align: center; }
-.q-value { font-family: var(--fd); font-size: 1.55rem; font-weight: 700; margin-bottom: 0.3rem; }
-.q-label { font-size: 0.67rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+/* ── Quality tiles ───────────────────────────────── */
+.quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 8px 0 24px; }
+@media (max-width: 1279px) { .quality-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px)  { .quality-grid { grid-template-columns: 1fr; } }
+.drop-list { padding: 12px 16px; }
+.drop-title { font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.drop-item  { font-size: 0.875rem; color: var(--text-2); padding: 4px 0; border-bottom: 1px solid var(--grid); }
+.drop-none  { font-size: 0.875rem; color: var(--muted); }
 
-/* ── Sidebar brand / labels ──────────────────────── */
-section[data-testid="stSidebar"] > div:first-child { padding-top: 1.5rem; }
+/* ── Sidebar ─────────────────────────────────────── */
+section[data-testid="stSidebar"] > div:first-child { padding-top: 24px; }
 section[data-testid="stSidebar"] { border-right: 1px solid var(--border) !important; }
-.sidebar-brand { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 2rem; padding: 0 0.25rem; }
-.brand-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
-.brand-name { font-family: var(--fd); font-size: 0.9rem; font-weight: 700; color: var(--text); line-height: 1.2; }
-.brand-sub  { font-size: 0.63rem; color: var(--muted); }
-.nav-label  { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 0 0.25rem; margin-bottom: 0.3rem; display: block; }
-.data-meta  { font-size: 0.64rem; color: var(--muted); line-height: 1.7; padding: 0.8rem 0.9rem; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border); margin-top: 1.5rem; }
-.data-meta strong { color: var(--text); }
+.brand-name { font-size: 1rem; font-weight: 600; color: var(--text); line-height: 1.2; }
+.brand-sub  { font-size: 0.75rem; color: var(--muted); margin-bottom: 24px; }
+.data-meta  { font-size: 0.75rem; color: var(--muted); line-height: 1.6; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--r); margin-top: 24px; }
+.data-meta strong { color: var(--text-2); font-weight: 500; }
 
 /* ── Radio → nav items ───────────────────────────── */
 div[data-testid="stRadio"] > div:first-child { display: none !important; }
 div[data-testid="stRadio"] label > div:first-child { display: none !important; }
 div[data-testid="stRadio"] label {
     display: flex !important; align-items: center !important;
-    padding: 0.5rem 0.75rem !important;
-    border-radius: 8px !important; border: 1px solid transparent !important;
-    cursor: pointer !important; transition: all 0.15s !important;
-    margin-bottom: 2px !important; width: 100% !important;
+    padding: 8px 12px !important; border-radius: 6px !important;
+    cursor: pointer !important; margin-bottom: 2px !important; width: 100% !important;
 }
-div[data-testid="stRadio"] label:hover { background: rgba(255,255,255,0.04) !important; }
-div[data-testid="stRadio"] label:has(input:checked) { background: rgba(59,130,246,0.12) !important; border-color: rgba(59,130,246,0.22) !important; }
-div[data-testid="stRadio"] label:has(input:checked) p { color: var(--accent) !important; font-weight: 500 !important; }
-div[data-testid="stRadio"] label p { font-size: 0.85rem !important; margin: 0 !important; }
-
-/* ── Widget label overrides ──────────────────────── */
-div[data-testid="stSlider"] label, div[data-testid="stMultiSelect"] label {
-    font-size: 0.7rem !important; color: var(--muted) !important;
-    text-transform: uppercase !important; letter-spacing: 0.08em !important;
-}
+div[data-testid="stRadio"] label:hover { background: rgba(255,255,255,0.05) !important; }
+div[data-testid="stRadio"] label:has(input:checked) { background: rgba(57,135,229,0.16) !important; }
+div[data-testid="stRadio"] label:has(input:checked) p { color: var(--text) !important; font-weight: 600 !important; }
+div[data-testid="stRadio"] label p { font-size: 0.875rem !important; margin: 0 !important; color: var(--text-2); }
 </style>
 """
 
 
 def _inject() -> None:
-    st.html(_FONTS + _CSS)
+    st.html(_CSS)
 
 
-def _hero(badge: str, title_html: str, subtitle: str) -> None:
+def _page_head(title: str, subtitle: str) -> None:
     st.markdown(
-        f"""<div class="hero">
-            <div class="hero-badge">{badge}</div>
-            <h1>{title_html}</h1>
-            <p>{subtitle}</p>
-        </div>""",
+        f"""<div class="page-head"><h1>{escape(title)}</h1><p>{escape(subtitle)}</p></div>""",
         unsafe_allow_html=True,
+    )
+
+
+def _tile(label: str, value: str, sub: str) -> str:
+    return (
+        f'<div class="kpi-card"><div class="kpi-label">{escape(label)}</div>'
+        f'<div class="kpi-value">{escape(value)}</div>'
+        f'<div class="kpi-sub">{escape(sub)}</div></div>'
     )
 
 
 def _kpis(df: pd.DataFrame) -> None:
     best = df.iloc[0]
-    st.markdown(
-        f"""<div class="kpi-grid">
-          <div class="kpi-card c-blue">
-            <div class="kpi-header"><span class="kpi-label">Countries</span><div class="kpi-icon">🌍</div></div>
-            <div class="kpi-value">{len(df)}</div>
-            <div class="kpi-sub"><span class="tag">in selection</span></div>
-          </div>
-          <div class="kpi-card c-green">
-            <div class="kpi-header"><span class="kpi-label">Top Affordability</span><div class="kpi-icon">🏆</div></div>
-            <div class="kpi-value">{best['country']}</div>
-            <div class="kpi-sub"><span class="tag">idx {best['affordability_index']:.0f}</span> highest score</div>
-          </div>
-          <div class="kpi-card c-amber">
-            <div class="kpi-header"><span class="kpi-label">Avg Salary</span><div class="kpi-icon">💰</div></div>
-            <div class="kpi-value">${df['median_salary_usd'].mean():,.0f}</div>
-            <div class="kpi-sub"><span class="tag">median</span> across countries</div>
-          </div>
-          <div class="kpi-card c-violet">
-            <div class="kpi-header"><span class="kpi-label">Avg Cost Index</span><div class="kpi-icon">📊</div></div>
-            <div class="kpi-value">{df['cost_of_living_index'].mean():.1f}</div>
-            <div class="kpi-sub"><span class="tag">aff. avg {df['affordability_index'].mean():.0f}</span></div>
-          </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    tiles = [
+        _tile("Countries", f"{len(df)}", "In the current selection"),
+        _tile(
+            "Most affordable",
+            str(best["country"]),
+            f"Affordability index {best['affordability_index']:,.0f}",
+        ),
+        _tile(
+            "Average salary",
+            f"${df['median_salary_usd'].mean():,.0f}",
+            "Mean of country medians",
+        ),
+        _tile(
+            "Average cost index",
+            f"{df['cost_of_living_index'].mean():.1f}",
+            f"Average affordability {df['affordability_index'].mean():,.0f}",
+        ),
+    ]
+    st.markdown(f'<div class="kpi-grid">{"".join(tiles)}</div>', unsafe_allow_html=True)
 
 
 def _load_data() -> pd.DataFrame | None:
@@ -280,28 +202,36 @@ def _load_data() -> pd.DataFrame | None:
         return None
 
 
-def _section(title: str) -> None:
+def _section(title: str, note: str = "") -> None:
+    note_html = f'<p class="section-note">{escape(note)}</p>' if note else ""
     st.markdown(
-        f'<div class="section-header"><div class="section-title">{title}</div></div>',
+        f'<div class="section-title">{escape(title)}</div>{note_html}',
         unsafe_allow_html=True,
     )
+
+
+def _chart(fig, table: pd.DataFrame) -> None:
+    """Chart plus its table twin (tooltips never gate a value)."""
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    with st.expander("View as table"):
+        st.dataframe(table, use_container_width=True, hide_index=True)
 
 
 def _rankings(df: pd.DataFrame, top_n: int) -> None:
     max_idx = df["affordability_index"].max() or 1
 
-    def _rows(rows_df: pd.DataFrame, fill_cls: str, rank_start: int) -> str:
+    def _rows(rows_df: pd.DataFrame, rank_start: int) -> str:
         html = ""
         for i, (_, row) in enumerate(rows_df.iterrows()):
             pct = int(row["affordability_index"] / max_idx * 100)
             html += (
                 f"<tr>"
                 f"<td class='rank-num'>{rank_start + i}</td>"
-                f"<td class='cname'>{row['country']}</td>"
-                f"<td class='salary-val'>${row['median_salary_usd']:,.0f}</td>"
-                f"<td><div class='idx-cell'>"
-                f"<div class='idx-track'><div class='idx-fill {fill_cls}' style='width:{pct}%'></div></div>"
-                f"{row['affordability_index']:.0f}"
+                f"<td>{escape(str(row['country']))}</td>"
+                f"<td class='num'>${row['median_salary_usd']:,.0f}</td>"
+                f"<td class='num'><div class='idx-cell'>"
+                f"<div class='idx-track'><div class='idx-fill' style='width:{pct}%'></div></div>"
+                f"{row['affordability_index']:,.0f}"
                 f"</div></td>"
                 f"</tr>"
             )
@@ -310,23 +240,18 @@ def _rankings(df: pd.DataFrame, top_n: int) -> None:
     top_df = df.head(top_n)
     bot_df = df.tail(top_n).sort_values("affordability_index")
     bot_start = len(df) - top_n + 1
+    head = "<thead><tr><th>#</th><th>Country</th><th class='num'>Salary</th><th class='num'>Index</th></tr></thead>"
 
-    _section("Country Rankings")
+    _section("Country rankings", "Affordability index = median salary ÷ cost of living index.")
     st.markdown(
         f"""<div class="rankings-grid">
           <div class="table-card">
-            <div class="table-head">
-              <div class="table-head-title"><span class="badge-top">▲ TOP {top_n}</span>&nbsp;Highest Affordability</div>
-            </div>
-            <table><thead><tr><th>#</th><th>Country</th><th>Salary</th><th>Index</th></tr></thead>
-            <tbody>{_rows(top_df, "fill-hi", 1)}</tbody></table>
+            <div class="table-head">▲ Most affordable <span>· top {top_n}</span></div>
+            <table>{head}<tbody>{_rows(top_df, 1)}</tbody></table>
           </div>
           <div class="table-card">
-            <div class="table-head">
-              <div class="table-head-title"><span class="badge-bot">▼ BOT {top_n}</span>&nbsp;Lowest Affordability</div>
-            </div>
-            <table><thead><tr><th>#</th><th>Country</th><th>Salary</th><th>Index</th></tr></thead>
-            <tbody>{_rows(bot_df, "fill-lo", bot_start)}</tbody></table>
+            <div class="table-head">▼ Least affordable <span>· bottom {top_n}</span></div>
+            <table>{head}<tbody>{_rows(bot_df, bot_start)}</tbody></table>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -340,30 +265,21 @@ def _insights(df: pd.DataFrame) -> None:
     avg_idx = df["affordability_index"].mean()
 
     cards = [
-        ("🌍", "01",
-         f'<span class="hi-text">{best["country"]}</span> leads global affordability '
-         f'(index {best["affordability_index"]:.0f}), while '
-         f'<span class="lo-text">{worst["country"]}</span> ranks lowest '
-         f'({worst["affordability_index"]:.0f}) — a cost-structure gap, not a salary gap.'),
-        ("🌎", "02",
-         f'<strong>{best_region}</strong> consistently offers the highest average purchasing power '
-         f'— competitive salaries combined with significantly lower living costs.'),
-        ("📊", "03",
-         f'The global average affordability index across <strong>{len(df)} countries</strong> is '
-         f'<strong>{avg_idx:.0f}</strong>. Countries above this threshold offer above-average real purchasing power.'),
-        ("💡", "04",
-         '<span class="lo-text">High nominal salaries</span> don\'t always win. '
-         'Cost structure has a greater impact on <strong>effective purchasing power</strong> '
-         'than raw salary figures across all regions.'),
+        f'<strong>{escape(str(best["country"]))}</strong> leads global affordability '
+        f'(index {best["affordability_index"]:,.0f}), while '
+        f'<strong>{escape(str(worst["country"]))}</strong> ranks lowest '
+        f'({worst["affordability_index"]:,.0f}) — a cost-structure gap, not a salary gap.',
+        f'<strong>{escape(str(best_region).strip())}</strong> has the highest average purchasing power '
+        f'in this selection — competitive salaries combined with lower living costs.',
+        f'The average affordability index across <strong>{len(df)} countries</strong> is '
+        f'<strong>{avg_idx:,.0f}</strong>. Countries above it offer above-average real purchasing power.',
+        'High nominal salaries don\'t always win. Cost structure has a greater impact on '
+        '<strong>effective purchasing power</strong> than raw salary figures.',
     ]
 
     cards_html = "".join(
-        f"""<div class="insight-card">
-            <div class="insight-num">{num}</div>
-            <span class="insight-icon">{icon}</span>
-            <div class="insight-text">{text}</div>
-        </div>"""
-        for icon, num, text in cards
+        f'<div class="insight-card"><div class="insight-text">{text}</div></div>'
+        for text in cards
     )
     st.markdown(f'<div class="insights-grid">{cards_html}</div>', unsafe_allow_html=True)
 
@@ -380,30 +296,27 @@ def _data_quality(summary: dict | None) -> None:
 
     st.caption(f"Last pipeline run: {summary.get('run_at', 'unknown')}")
 
-    metrics = [
-        ("#10b981", gold.get("countries", 0), "Gold Countries"),
-        ("#3b82f6", f"{gold.get('match_rate_pct', 0):.1f}%", "Match Rate"),
-        ("#f59e0b", salaries.get("unknown_currencies", 0), "Unknown Currencies"),
-        ("#ef4444", salaries.get("outliers_removed", 0), "Salary Outliers"),
-    ]
-    cards_html = "".join(
-        f'<div class="q-card"><div class="q-value" style="color:{color};">{val}</div>'
-        f'<div class="q-label">{label}</div></div>'
-        for color, val, label in metrics
+    tiles = "".join(
+        [
+            _tile("Countries in gold layer", f"{gold.get('countries', 0)}", "After joining salary and cost data"),
+            _tile("Match rate", f"{gold.get('match_rate_pct', 0):.1f}%", "Countries found in both sources"),
+            _tile("Unknown currencies", f"{salaries.get('unknown_currencies', 0)}", "Salary rows without an exchange rate"),
+            _tile("Salary outliers removed", f"{salaries.get('outliers_removed', 0)}", "Rows excluded as outliers"),
+        ]
     )
-    st.markdown(f'<div class="quality-grid">{cards_html}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="quality-grid">{tiles}</div>', unsafe_allow_html=True)
 
-    _section("Source Row Counts")
+    _section("Rows per source")
     src_rows = "".join(
-        f"<tr><td class='source-name'>{name}</td>"
-        f"<td class='rows-val'>{d.get('rows', 0):,}</td>"
-        f"<td><span class='badge-ok'>✓ OK</span></td></tr>"
+        f"<tr><td>{escape(str(name))}</td>"
+        f"<td class='num'>{d.get('rows', 0):,}</td>"
+        f"<td><span class='status-ok'>✓ Loaded</span></td></tr>"
         for name, d in sources.items()
     )
     st.markdown(
-        f"""<div class="table-card" style="margin-bottom:1rem;">
+        f"""<div class="table-card">
           <table>
-            <thead><tr><th>Source</th><th>Rows</th><th>Status</th></tr></thead>
+            <thead><tr><th>Source</th><th class='num'>Rows</th><th>Status</th></tr></thead>
             <tbody>{src_rows}</tbody>
           </table>
         </div>""",
@@ -412,27 +325,18 @@ def _data_quality(summary: dict | None) -> None:
 
     def _dropped_list(items: list[str]) -> str:
         if not items:
-            return (
-                "<span style='color:#10b981;font-family:var(--fm);"
-                "font-size:0.8rem;'>none</span>"
-            )
-        return "".join(
-            f"<div style='font-family:var(--fm);font-size:0.77rem;color:var(--muted);"
-            f"padding:0.35rem 0;border-bottom:1px solid var(--border);'>{c}</div>"
-            for c in items
-        )
+            return "<div class='drop-none'>None dropped</div>"
+        return "".join(f"<div class='drop-item'>{escape(str(c))}</div>" for c in items)
 
-    _section("Dropped Countries")
+    _section("Dropped countries")
     st.markdown(
         f"""<div class="rankings-grid">
-          <div class="table-card" style="padding:1rem 1.15rem;">
-            <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;
-                        letter-spacing:.08em;margin-bottom:.6rem;">Cost of Living</div>
+          <div class="table-card drop-list">
+            <div class="drop-title">Missing from cost of living data</div>
             {_dropped_list(cost.get("dropped_countries", []))}
           </div>
-          <div class="table-card" style="padding:1rem 1.15rem;">
-            <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;
-                        letter-spacing:.08em;margin-bottom:.6rem;">Gold Matches</div>
+          <div class="table-card drop-list">
+            <div class="drop-title">No match in the gold join</div>
             {_dropped_list(gold.get("dropped_no_match", []))}
           </div>
         </div>""",
@@ -451,42 +355,19 @@ _summary = load_pipeline_summary(config.PIPELINE_SUMMARY_FILE) or load_pipeline_
     config.GOLD_DIR / "example_pipeline_run_summary.json"
 )
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── Sidebar: navigation only ───────────────────────────────────────────────────
 
 with st.sidebar:
     st.markdown(
-        """<div class="sidebar-brand">
-          <div class="brand-icon">🌍</div>
-          <div>
-            <div class="brand-name">DevEconomy</div>
-            <div class="brand-sub">Salary Intelligence</div>
-          </div>
-        </div>""",
+        """<div class="brand-name">DevEconomy</div>
+        <div class="brand-sub">Developer salary intelligence</div>""",
         unsafe_allow_html=True,
     )
-    st.markdown('<span class="nav-label">Navigate</span>', unsafe_allow_html=True)
     page = st.radio(
-        "",
+        "Page",
         ["Overview", "Salaries", "Affordability", "Insights", "Data Quality"],
         label_visibility="collapsed",
     )
-
-    if page != "Data Quality":
-        st.markdown(
-            '<span class="nav-label" style="margin-top:1.25rem;">Filters</span>',
-            unsafe_allow_html=True,
-        )
-        top_n = st.slider("Ranking size", min_value=3, max_value=20, value=10)
-        regions = sorted(df_raw["region"].dropna().unique())
-        selected_regions = st.multiselect("Region", regions, default=regions)
-        sal_min = int(df_raw["median_salary_usd"].min())
-        sal_max = int(df_raw["median_salary_usd"].max())
-        salary_range = st.slider(
-            "Salary range (USD)", sal_min, sal_max, (sal_min, sal_max),
-            step=1000, format="$%d",
-        )
-    else:
-        top_n = 10
 
     if _summary:
         run_at = _summary.get("run_at", "")[:16]
@@ -494,17 +375,50 @@ with st.sidebar:
         match_rate = _summary.get("gold", {}).get("match_rate_pct", "—")
         st.markdown(
             f"""<div class="data-meta">
-              <strong>Last pipeline run</strong><br/>
-              <span style="font-family:var(--fm);">{run_at}</span><br/><br/>
-              <span style="color:rgba(255,255,255,0.25);">{countries} countries
-              · {match_rate}% match rate</span>
+              <strong>Last pipeline run</strong><br/>{escape(run_at)}<br/>
+              {countries} countries · {match_rate}% match rate
             </div>""",
             unsafe_allow_html=True,
         )
 
-# ── Filter ─────────────────────────────────────────────────────────────────────
+# ── Page header, then one filter row above everything it scopes ────────────────
+
+_HEADERS = {
+    "Overview": (
+        "Developer salary vs cost of living",
+        "Where developers get the most purchasing power for their salary.",
+    ),
+    "Salaries": (
+        "Developer salaries by country",
+        "Median developer salaries normalized to USD for cross-border comparison.",
+    ),
+    "Affordability": (
+        "Where does a salary go furthest?",
+        "High nominal salaries don't always win; the affordability index shows real purchasing power.",
+    ),
+    "Insights": (
+        "Key insights",
+        "Conclusions about purchasing power, regional trends and cost structure.",
+    ),
+    "Data Quality": (
+        "Data quality and sources",
+        "Pipeline stats, source match rates and diagnostics from the last run.",
+    ),
+}
+_page_head(*_HEADERS[page])
 
 if page != "Data Quality":
+    f_region, f_salary, f_top = st.columns([3, 3, 2])
+    regions = sorted(df_raw["region"].dropna().unique())
+    selected_regions = f_region.multiselect("Region", regions, default=regions)
+    sal_min = int(df_raw["median_salary_usd"].min())
+    sal_max = int(df_raw["median_salary_usd"].max())
+    salary_range = f_salary.slider(
+        "Salary range (USD)", sal_min, sal_max, (sal_min, sal_max),
+        step=1000, format="$%d",
+    )
+    top_n = f_top.slider("Ranking size", min_value=3, max_value=20, value=10)
+
     df = (
         df_raw[
             df_raw["region"].isin(selected_regions)
@@ -515,58 +429,48 @@ if page != "Data Quality":
         .reset_index(drop=True)
     )
     if df.empty:
-        st.warning("No countries match the selected filters.")
+        st.warning("No countries match the selected filters. Widen the region or salary range.")
         st.stop()
 else:
+    top_n = 10
     df = df_raw
 
 # ── Pages ──────────────────────────────────────────────────────────────────────
 
 if page == "Overview":
-    _hero(
-        "120+ Countries · 2024 Data",
-        'Dev <span class="hl">Salary</span> vs Cost of Living',
-        "Discover where developers get the most purchasing power for their salary.",
-    )
     _kpis(df)
-    _section("Global Affordability Map")
-    st.plotly_chart(world_cost_map(df), use_container_width=True)
+    _section("Cost of living by country", "Darker blue means a lower cost of living index.")
+    _chart(
+        world_cost_map(df),
+        df[["country", "region", "cost_of_living_index"]]
+        .sort_values("cost_of_living_index", ascending=False),
+    )
     _rankings(df, top_n)
 
 elif page == "Salaries":
-    _hero(
-        "USD Normalized · 2024",
-        'Developer <span class="hl">Salaries</span> by Country',
-        "Median developer salaries normalized to USD for fair cross-border comparison.",
-    )
     _kpis(df)
-    _section("Salary by Country")
-    st.plotly_chart(salary_by_country_bar(df), use_container_width=True)
+    _section("Median salary by country", "Top 20 countries in the current selection.")
+    _chart(
+        salary_by_country_bar(df),
+        df[["country", "region", "median_salary_usd"]]
+        .sort_values("median_salary_usd", ascending=False),
+    )
 
 elif page == "Affordability":
-    _hero(
-        "Purchasing Power Analysis",
-        'Where Does Your <span class="hl">Salary</span> Go Furthest?',
-        "High nominal salaries don't always win — the affordability index reveals the real picture.",
-    )
     _kpis(df)
-    _section("Affordability Ranking")
-    st.plotly_chart(affordability_ranking_bar(df, top_n=top_n), use_container_width=True)
-    _section("Salary vs Cost of Living")
-    st.plotly_chart(affordability_scatter(df), use_container_width=True)
+    _section("Affordability ranking", f"Top {top_n} countries by salary ÷ cost of living.")
+    _chart(
+        affordability_ranking_bar(df, top_n=top_n),
+        df[["country", "region", "affordability_index"]].head(top_n),
+    )
+    _section("Salary vs cost of living", f"The {top_n} most affordable countries are highlighted.")
+    _chart(
+        affordability_scatter(df, highlight_n=top_n),
+        df[["country", "region", "cost_of_living_index", "median_salary_usd", "affordability_index"]],
+    )
 
 elif page == "Insights":
-    _hero(
-        "Analysis · 2024 Data",
-        'Key <span class="hl">Insights</span> from the Data',
-        "Data-backed conclusions about purchasing power, regional trends, and cost structures.",
-    )
     _insights(df)
 
 else:  # Data Quality
-    _hero(
-        "Pipeline · Quality Report",
-        'Data <span class="hl">Quality</span> &amp; Sources',
-        "Pipeline execution stats, source match rates, and diagnostics from the last run.",
-    )
     _data_quality(_summary)

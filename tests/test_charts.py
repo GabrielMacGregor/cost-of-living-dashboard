@@ -27,7 +27,7 @@ def _chart_df() -> pd.DataFrame:
 def test_world_cost_map_uses_iso3_locations():
     fig = world_cost_map(_chart_df())
     assert fig.data[0].locations.tolist() == ["BRA", "DEU", "CAN"]
-    assert fig.layout.title.text == "Cost of Living Index by Country"
+    assert fig.layout.coloraxis.colorbar.title.text == "Cost index"
 
 
 def test_salary_bar_is_horizontal():
