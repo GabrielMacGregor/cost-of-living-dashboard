@@ -16,6 +16,7 @@ class PipelineRunSummary:
         self.silver: dict = {}
         self.gold: dict = {}
         self.output_path: str = ""
+        self.snapshot: dict | None = None
 
     def record_source(self, name: str, rows: int, url: str = "") -> None:
         self.sources[name] = {"rows": rows, "url": url}
@@ -52,8 +53,12 @@ class PipelineRunSummary:
             "match_rate_pct": round(100 * countries / total, 1) if total else 0.0,
         }
 
+    def record_snapshot(self, result: dict) -> None:
+        """Add optional snapshot-diff metrics without changing the existing report schema."""
+        self.snapshot = result.copy()
+
     def to_dict(self) -> dict:
-        return {
+        result = {
             "year": self.year,
             "run_at": self.run_at,
             "sources": self.sources,
@@ -61,6 +66,9 @@ class PipelineRunSummary:
             "gold": self.gold,
             "output_path": self.output_path,
         }
+        if self.snapshot is not None:
+            result["snapshot"] = self.snapshot
+        return result
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

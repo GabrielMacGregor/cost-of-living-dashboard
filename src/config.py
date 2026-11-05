@@ -4,6 +4,7 @@ from pathlib import Path
 BRONZE_DIR = Path("data/bronze")
 SILVER_DIR = Path("data/silver")
 GOLD_DIR = Path("data/gold")
+SNAPSHOT_DIR = GOLD_DIR.parent / "snapshots"
 GOLD_FILE = GOLD_DIR / "country_affordability.csv"
 EXAMPLE_GOLD_FILE = GOLD_DIR / "example_country_affordability.csv"
 PIPELINE_SUMMARY_FILE = GOLD_DIR / "pipeline_run_summary.json"

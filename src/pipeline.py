@@ -13,6 +13,7 @@ from src.ingest_stackoverflow import fetch_stackoverflow_salaries
 from src.ingest_worldbank import fetch_worldbank_countries
 from src.quality import PipelineRunSummary
 from src.silver import process_cost_of_living, process_developer_salaries, save_silver
+from src.snapshots import reconcile_gold_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,11 @@ def _parse_args() -> argparse.Namespace:
         dest="salary_outlier_threshold",
         help="Remove salaries (USD) above this value before computing medians",
     )
+    parser.add_argument(
+        "--track-snapshots",
+        action="store_true",
+        help="Compare and archive full Gold snapshots by survey year (not source-level CDC)",
+    )
     return parser.parse_args()
 
 
@@ -48,6 +54,7 @@ def run_pipeline(
     year: int = config.DEFAULT_YEAR,
     output_dir: Path = config.GOLD_DIR,
     salary_outlier_threshold: float = config.SALARY_OUTLIER_THRESHOLD,
+    track_snapshots: bool = False,
 ) -> None:
     """Execute the full medallion pipeline: ingest -> bronze -> silver -> gold."""
     logger.info("=== Pipeline start (year=%d) ===", year)
@@ -102,6 +109,26 @@ def run_pipeline(
     gold_df = build_gold_layer(cost_silver, salary_silver)
     gold_path = save_gold(gold_df, output_dir=output_dir)
 
+    # Optional audit history, written after Gold so a failed save never leaves an orphan
+    # snapshot, and kept next to the Gold directory so --output is respected. It is an
+    # add-on: a snapshot error is reported in the summary but never blocks the Gold output.
+    if track_snapshots:
+        try:
+            snapshot_stats = reconcile_gold_snapshot(
+                gold_df, year=year, snapshot_root=output_dir.parent / "snapshots"
+            )
+        except ValueError as exc:
+            logger.error("Gold snapshot skipped: %s", exc)
+            summary.record_snapshot({"status": "error", "error": str(exc)})
+        else:
+            summary.record_snapshot(snapshot_stats)
+            logger.info(
+                "Gold snapshots: %s (new=%d changed=%d unchanged=%d removed=%d)",
+                snapshot_stats["status"], snapshot_stats["inserted"],
+                snapshot_stats["updated"], snapshot_stats["unchanged"],
+                snapshot_stats["removed"],
+            )
+
     dropped_gold = sorted(cost_countries_before - set(gold_df["country"]))
     summary.record_gold(countries=len(gold_df), dropped_no_match=dropped_gold)
     summary.output_path = str(gold_path)
@@ -117,6 +144,7 @@ def main() -> None:
         year=args.year,
         output_dir=args.output,
         salary_outlier_threshold=args.salary_outlier_threshold,
+        track_snapshots=args.track_snapshots,
     )
 
 
