@@ -117,6 +117,13 @@ local under `data/snapshots/` and are ignored by Git.
 API ingestion or a time series**. The Stack Overflow input remains the 2024
 survey and currency exchange rates are fetched at run time; comparisons
 across runs must not be interpreted as historical purchasing-power changes.
+Each change also appends an immutable manifest under `data/snapshots/<year>/log/`,
+refreshes that drop more than 25% of known countries are refused, and a snapshot
+error is reported in the summary without blocking the Gold CSV.
+
+The dashboard shows a banner when it falls back to the bundled 30-country example, and
+its quality report always matches the data on screen. The affordability index (salary ÷
+cost of living index) is a simplified comparison, not a full purchasing-power model.
 
 For the Mermaid architecture diagram, failure behavior, data lineage and
 reconciliation details, see [Data Engineering Notes](docs/data-engineering.md).
