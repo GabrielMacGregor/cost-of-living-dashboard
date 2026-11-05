@@ -121,3 +121,23 @@ def test_load_gold_missing_file_raises(monkeypatch):
     monkeypatch.setattr(gold_module, "GOLD_FILE", Path("__nonexistent_gold_file__.csv"))
     with pytest.raises(FileNotFoundError):
         load_gold()
+
+
+def test_build_gold_layer_joins_on_iso3_when_names_differ():
+    salary_df = pd.DataFrame({
+        "iso3": ["BRA", "DEU"],
+        "country": ["Brasil", "Deutschland"],  # naming differs from the cost layer
+        "median_salary_usd": [30000.0, 84000.0],
+    })
+    out = build_gold_layer(_cost_df(), salary_df)
+    assert set(out["country"]) == {"Brazil", "Germany"}
+    assert len(out) == 2
+
+
+def test_build_gold_layer_rejects_duplicate_iso3():
+    salary_df = pd.DataFrame({
+        "iso3": ["BRA", "BRA"], "country": ["Brazil", "Brazil"],
+        "median_salary_usd": [1.0, 2.0],
+    })
+    with pytest.raises(ValueError, match="iso3 must be unique"):
+        build_gold_layer(_cost_df(), salary_df)

@@ -1,4 +1,5 @@
 import logging
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -71,6 +72,64 @@ _SO_TO_WB: dict[str, str] = {
 }
 
 
+# Extra aliases found by auditing real Numbeo / Stack Overflow names against the World Bank list.
+# Keys are matched after normalisation (case, accents, trailing "..." are ignored).
+_EXTRA_TO_WB: dict[str, str] = {
+    # Numbeo
+    "Hong Kong (China)": "Hong Kong SAR, China",
+    "Macao (China)": "Macao SAR, China",
+    "Brunei": "Brunei Darussalam",
+    "Turkey": "Turkiye",
+    "Kosovo (Disputed Territory)": "Kosovo",
+    "Somalia": "Somalia, Fed. Rep.",
+    "Puerto Rico": "Puerto Rico (US)",
+    "Us Virgin Islands": "Virgin Islands (U.S.)",
+    "Ivory Coast": "Cote d'Ivoire",
+    # Stack Overflow
+    "Hong Kong (S.A.R.)": "Hong Kong SAR, China",
+    "Libyan Arab Jamahiriya": "Libya",
+    "Republic of Moldova": "Moldova",
+    "Republic of North Macedonia": "North Macedonia",
+    "Iran, Islamic Republic of...": "Iran, Islamic Rep.",
+    "Venezuela, Bolivarian Republic of...": "Venezuela, RB",
+    "Congo, Republic of the...": "Congo, Rep.",
+    "Democratic Republic of the Congo": "Congo, Dem. Rep.",
+    "Swaziland": "Eswatini",
+    "Cape Verde": "Cabo Verde",
+    "Palestine": "West Bank and Gaza",
+    "Taiwan": "Taiwan, China",
+}
+
+
+def _normalize(name: str) -> str:
+    """Comparison key: accent-free, case-insensitive, no trailing ellipsis, single spaces."""
+    text = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode("ascii")
+    text = text.strip().rstrip(".").strip()
+    return " ".join(text.casefold().split())
+
+
+_ALIASES: dict[str, str] = {
+    _normalize(k): v for k, v in {**_NUMBEO_TO_WB, **_SO_TO_WB, **_EXTRA_TO_WB}.items()
+}
+
+
+def _wb_index(wb_df: pd.DataFrame) -> dict[str, dict]:
+    """World Bank rows keyed by normalised name."""
+    return {
+        _normalize(row["name"]): {
+            "name": row["name"], "iso3": row["iso3"], "region": row["region"],
+        }
+        for _, row in wb_df.iterrows()
+    }
+
+
+def _resolve(name: str, index: dict[str, dict]) -> dict | None:
+    """Match a source country name to a World Bank row (alias first, then direct)."""
+    key = _normalize(name)
+    target = _ALIASES.get(key)
+    return index.get(_normalize(target)) if target else index.get(key)
+
+
 def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.DataFrame:
     """Clean Numbeo raw data and enrich each country with iso3 and region.
 
@@ -93,31 +152,24 @@ def process_cost_of_living(raw_df: pd.DataFrame, wb_df: pd.DataFrame) -> pd.Data
     df["cost_of_living_index"] = pd.to_numeric(df["cost_of_living_index"], errors="coerce")
     df = df.dropna(subset=["cost_of_living_index"])
 
-    # Build World Bank lookup: wb_name → {iso3, region}
-    wb_lookup: dict[str, dict] = {
-        row["name"]: {"iso3": row["iso3"], "region": row["region"]}
-        for _, row in wb_df.iterrows()
-    }
+    index = _wb_index(wb_df)
+    matches = df["country"].map(lambda c: _resolve(c, index))
+    unmatched = sorted(df.loc[matches.isna(), "country"].astype(str).unique())
+    df = df.loc[matches.notna()].copy()
+    matches = matches.loc[df.index]
 
-    def _enrich(country_name: str) -> tuple[str | None, str | None]:
-        wb_name = _NUMBEO_TO_WB.get(country_name, country_name)
-        entry = wb_lookup.get(wb_name)
-        if entry:
-            return entry["iso3"], entry["region"]
-        return None, None
+    # Display name, iso3 and region all come from the World Bank row
+    df["country"] = matches.map(lambda m: m["name"])
+    df["iso3"] = matches.map(lambda m: m["iso3"])
+    df["region"] = matches.map(lambda m: m["region"])
 
-    enriched = df["country"].map(lambda c: _enrich(c))
-    df["iso3"] = enriched.map(lambda t: t[0])
-    df["region"] = enriched.map(lambda t: t[1])
-
-    # Normalise display name to World Bank standard
-    df["country"] = df["country"].map(lambda c: _NUMBEO_TO_WB.get(c, c))
-
-    before = len(df)
-    df = df.dropna(subset=["iso3", "region"])
-    dropped = before - len(df)
-    if dropped:
-        logger.warning("Silver cost_of_living: dropped %d rows with no iso3/region match", dropped)
+    if unmatched:
+        logger.warning(
+            "Silver cost_of_living: dropped %d rows with no iso3/region match: %s",
+            len(unmatched), unmatched,
+        )
+    df = df.drop_duplicates(subset="iso3", keep="first")
+    df.attrs["dropped_countries"] = unmatched
 
     logger.info("Silver cost_of_living: %d countries retained", len(df))
     return df.reset_index(drop=True)
@@ -127,12 +179,18 @@ def process_developer_salaries(
     raw_df: pd.DataFrame,
     exchange_rates: dict[str, float],
     outlier_threshold: float = config.SALARY_OUTLIER_THRESHOLD,
+    wb_df: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     """Clean Stack Overflow survey data and compute median salary in USD by country.
 
     raw_df must have columns: country, currency, comp_total.
     exchange_rates maps ISO 4217 currency code → units per 1 USD (e.g. {"EUR": 0.92}).
     Salaries above outlier_threshold USD are treated as data errors and removed.
+
+    When wb_df (World Bank name/iso3/region) is given, countries are resolved to ISO3 so the
+    Gold join can use the same key as the cost layer; survey names with no match are
+    dropped and listed in stats["unmatched_countries"]. Without it the legacy name mapping
+    is used and no iso3 column is produced.
 
     Returns (result_df, stats) where stats contains quality metrics for the pipeline report.
     """
@@ -168,11 +226,23 @@ def process_developer_salaries(
             total_dropped,
         )
 
-    # Normalise country names to World Bank standard
-    df["country"] = df["country"].map(lambda c: _SO_TO_WB.get(c, c))
+    unmatched: list[str] = []
+    if wb_df is not None:
+        index = _wb_index(wb_df)
+        matches = df["country"].map(lambda c: _resolve(c, index))
+        unmatched = sorted(df.loc[matches.isna(), "country"].unique())
+        df = df.loc[matches.notna()].copy()
+        matches = matches.loc[df.index]
+        df["iso3"] = matches.map(lambda m: m["iso3"])
+        df["country"] = matches.map(lambda m: m["name"])
+        group_cols = ["iso3", "country"]
+    else:
+        # Legacy: normalise country names to World Bank standard
+        df["country"] = df["country"].map(lambda c: _SO_TO_WB.get(c, c))
+        group_cols = ["country"]
 
     result = (
-        df.groupby("country", as_index=False)["salary_usd"]
+        df.groupby(group_cols, as_index=False)["salary_usd"]
         .median()
         .rename(columns={"salary_usd": "median_salary_usd"})
     )
@@ -182,6 +252,7 @@ def process_developer_salaries(
         "unknown_currencies": unknown_currencies,
         "outliers_removed": outliers_removed,
         "countries": len(result),
+        "unmatched_countries": unmatched,
     }
 
     logger.info("Silver developer_salaries: %d countries", len(result))

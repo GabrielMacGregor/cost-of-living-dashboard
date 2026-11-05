@@ -87,10 +87,9 @@ def run_pipeline(
     # --- Silver: clean and normalise each source independently ---
     logger.info("Step 5/6: Building silver layer")
 
-    numbeo_countries_before = set(numbeo_raw["Country"].astype(str))
     cost_silver = process_cost_of_living(numbeo_raw, wb_raw)
     save_silver(cost_silver, "cost_of_living")
-    dropped_cost = sorted(numbeo_countries_before - set(cost_silver["country"]))
+    dropped_cost = cost_silver.attrs.get("dropped_countries", [])
     summary.record_silver_cost(
         rows_in=len(numbeo_raw),
         rows_out=len(cost_silver),
@@ -98,7 +97,10 @@ def run_pipeline(
     )
 
     salary_silver, salary_stats = process_developer_salaries(
-        so_raw, exchange_rates, outlier_threshold=salary_outlier_threshold
+        so_raw,
+        exchange_rates,
+        outlier_threshold=salary_outlier_threshold,
+        wb_df=wb_raw,
     )
     save_silver(salary_silver, "developer_salaries")
     summary.record_silver_salaries(**salary_stats)
