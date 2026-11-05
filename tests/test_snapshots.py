@@ -105,3 +105,9 @@ def test_no_snapshot_when_data_invalid(tmp_path):
     with pytest.raises(ValueError):
         reconcile_gold_snapshot(_gold().assign(iso3=["BRA", "BRA"]), 2024, tmp_path)
     assert not (tmp_path / "2024" / "latest.json").exists()
+
+
+def test_empty_gold_fails_closed(tmp_path):
+    with pytest.raises(ValueError, match="is empty"):
+        reconcile_gold_snapshot(_gold().iloc[0:0].copy(), 2024, tmp_path)
+    assert not (tmp_path / "2024" / "latest.json").exists()
