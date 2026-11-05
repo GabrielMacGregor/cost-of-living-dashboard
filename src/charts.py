@@ -59,7 +59,7 @@ def _layout(**kwargs) -> dict:
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=_FONT,
-        title=None,
+        title=dict(text=""),  # None makes plotly.js render the word "undefined"
         hoverlabel=_HOVER,
         **kwargs,
     )
