@@ -11,6 +11,8 @@ data/silver/
 data/gold/country_affordability.csv
 data/gold/*.json
 !data/gold/example_pipeline_run_summary.json
+# Snapshot history is local audit data, not demo content for the public repo
+data/snapshots/
 # Raw: only template CSVs are tracked; real data files are ignored
 data/raw/*.csv
 data/raw/*.json
